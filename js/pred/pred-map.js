@@ -192,6 +192,27 @@ function clearMapItems() {
         hourly_polyline.remove();
         hourly_polyline = null;
     }
+
+    // Clear Ehime variant markers if present
+    if(typeof ehime_predictions !== 'undefined' && ehime_predictions){
+        for (var k in ehime_predictions){
+            var ep = ehime_predictions[k];
+            if(ep && ep.marker){
+                try { ep.marker.remove(); } catch(e) {}
+            }
+        }
+        if(typeof ehime_variant_total !== 'undefined'){
+            ehime_predictions = {};
+            ehime_variant_total = 0;
+            // Reset info row if it exists
+            if(document.getElementById('ehime_completed')){
+                $('#ehime_completed').text('0');
+                $('#ehime_total').text('0');
+                $('#ehime_mean').text('-');
+                $('#ehime_max_dev').text('-');
+            }
+        }
+    }
 }
 
 // The Haversine formula to calculate the distance across the surface between

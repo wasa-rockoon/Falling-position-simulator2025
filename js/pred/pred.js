@@ -84,18 +84,21 @@ function readURLParams() {
     if(url.searchParams.has('launch_datetime')){
         var launch_datetime = url.searchParams.get('launch_datetime');
 
+        var launch_moment_utc;
         if(launch_datetime == "now"){
-            launch_moment = moment.utc();
+            launch_moment_utc = moment.utc();
             time_was_now = true;
         } else {
-            launch_moment = moment.utc(launch_datetime);
+            launch_moment_utc = moment.utc(launch_datetime);
         }
 
-        $("#min").val(launch_moment.minutes());
-        $("#hour").val(launch_moment.hours());
-        $("#day").val(launch_moment.date());
-        $("#month").val(launch_moment.month()+1);
-        $("#year").val(launch_moment.year());
+        // Convert to JST for display
+        var launch_moment_jst = launch_moment_utc.clone().utcOffset(9*60);
+        $("#min").val(launch_moment_jst.minutes());
+        $("#hour").val(launch_moment_jst.hours());
+        $("#day").val(launch_moment_jst.date());
+        $("#month").val(launch_moment_jst.month()+1);
+        $("#year").val(launch_moment_jst.year());
 
         params_provided = true;
     }

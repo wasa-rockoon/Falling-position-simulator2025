@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-    <title>CUSF / SondeHub Predictor</title>
+    <title>WASA / 気球実験用 予測ツール</title>
 
     <!--<link href="css/bootstrap.min.css" rel="stylesheet">-->
     <link href="css/leaflet.css" rel="stylesheet">
@@ -35,140 +35,125 @@
 <!-- Debug window -->
 <div id="scenario_template" class="box ui-corner-all">
     <div id="scenario_template_scroller">
-    <h1>Debug Window</h1>
-    <span id="debuginfo">No Messages</span>
+    <h1>デバッグウィンドウ</h1>
+    <span id="debuginfo">メッセージはありません</span>
     </div>
     </div>
     
     <!-- Prediction progress window -->
     <div id="status_message" class="box ui-corner-all">
-        <span id="prediction_status"></span><br>
-        <a><span id="showHideDebug_status">Toggle Debug</span></a>
+    <span id="prediction_status"></span><br>
+    <a><span id="showHideDebug_status">デバッグ切替</span></a>
     </div>
     
     <!-- Error window -->
     <div id="error_window" class="box ui-corner-all">
-        <span id="error_message">Nothing here!</span>
+    <span id="error_message">ここには何もありません！</span>
         <br /><br />
-        <a id="closeErrorWindow">Close</a>
+    <a id="closeErrorWindow">閉じる</a>
     </div>
 
 <!-- Scenario information -->
 <div id="scenario_info" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
-    <h1>Scenario Information</h1>
-    <span id="cursor_info">Current mouse position: 
-        Lat: <span id="cursor_lat">?</span> 
-        Lon: <span id="cursor_lon">?</span>
+    <h1>シナリオ情報</h1>
+    <span id="cursor_info">現在のマウス位置: 
+        緯度: <span id="cursor_lat">?</span> 
+        経度: <span id="cursor_lon">?</span>
     </span><br />
     <span id="cursor_pred" style="display:none">
-        Range: <span id="cursor_pred_range"></span>km, 
-        Flight Time: <span id="cursor_pred_time"></span><br />
-        Cursor range from launch: <span id="cursor_pred_launchrange">?</span>km, 
-        land: <span id="cursor_pred_landrange">?</span>km
+        到達距離: <span id="cursor_pred_range"></span> km, 
+        飛行時間: <span id="cursor_pred_time"></span><br />
+        発射点からカーソル距離: <span id="cursor_pred_launchrange">?</span> km, 
+        着地点: <span id="cursor_pred_landrange">?</span> km
         <br />
     </span>
     <span id="cursor_pred_lastrun" style="display:none">
-        Last run at <span id="run_time">?</span> UTC using model <span id="dataset">?</span>
+        最終実行: <span id="run_time">?</span> UTC / 使用モデル: <span id="dataset">?</span>
         <br />
     </span>
     <span id="cursor_pred_links" style="display:none">
         <span class="ui-corner-all control_buttons">
-            <a class="control_button" id="panto">Pan To</a> | 
+            <a class="control_button" id="panto">中心へ移動</a> | 
             <a class="control_button" id="dlcsv">CSV</a> | 
             <a class="control_button" id="dlkml">KML</a>
         </span>
     </span>
     <br />
     <span class="ui-corner-all control_buttons">
-        <a class="control_button" id="showHideDebug">Show Debug</a> | 
-        <a class="control_button" id="showHideForm">Hide Launch Card</a> |
-        <a class="control_button" id="about_window_show">About</a>
+        <a class="control_button" id="showHideDebug">デバッグ表示</a> | 
+        <a class="control_button" id="showHideForm">起動カードを隠す</a> |
+        <a class="control_button" id="about_window_show">このツールについて</a>
     </span>
     <br />
-    <span><b>Non-Commercial Use Only. Please read the 'About' page.</b></span>
-    <br />
-    <span><b>The Tawhiri engine is currently experiencing some performance issues. Please be patient!</b></span>
+    <span><b>基本的にはTawahiriを使用させていただいてる立場です。先人たちの功績に敬意を払い、気球実験で活用させていただこうと思います。</b></span>
 </div>
 
 <!-- Save location to cookie -->
 <div id="location_save" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
-    <h1>Save Launch Location</h1><br />
+    <h1>打ち上げ位置を保存</h1><br />
     <form name="location_save_form" id="location_save_form">
     <table name="req_table" id="req_table">
     <tr>
-    <td>Latitude: </td><td><input type="text" name="req_lat" id="req_lat" size="15"></td>
+    <td>緯度: </td><td><input type="text" name="req_lat" id="req_lat" size="15"></td>
     </tr><tr>
-    <td>Longitude: </td><td><input type="text" name="req_lon" id="req_lon" size="15"></td>
+    <td>経度: </td><td><input type="text" name="req_lon" id="req_lon" size="15"></td>
     </tr><tr>
-    <td>Altitude: </td><td><input type="text" name="req_alt" id="req_alt" size="15"></td>
+    <td>高度: </td><td><input type="text" name="req_alt" id="req_alt" size="15"></td>
     </tr><tr>
-    <td>Site Name: </td><td><input type="text" name="req_name" id="req_name" size="15"></td>
+    <td>サイト名: </td><td><input type="text" name="req_name" id="req_name" size="15"></td>
     </tr><tr>
-    <td></td><td><input type="button" value="Save" name="submit" id="req_sub_btn"></td>
+    <td></td><td><input type="button" value="保存" name="submit" id="req_sub_btn"></td>
     </tr>
     </table>
     </form><br />
-    <a id="req_close">Close this window</a>
+    <a id="req_close">このウィンドウを閉じる</a>
 </div>
 
 <!-- View saved locations -->
 <div id="location_save_local" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
-    <b>Saved Locations</b><br />
+    <b>保存済み位置</b><br />
     <span id="locations_table">?</span>
     <br />
-    <a id="locations_close">Close this window</a>
+    <a id="locations_close">このウィンドウを閉じる</a>
 </div>
 
 <!-- About window -->
 <div id="about_window">
-    <h3>Cambridge University Spaceflight Landing Predictor - Leaflet Version (<a href="https://github.com/projecthorus/leaflet_predictor/wiki" target="_blank">github</a>)</h3>
-    <p>A tool to predict the flight path and landing location of latex sounding balloons.</p>
-    <p>Written by <a href="http://github.com/jonsowman" target="_blank">Jon Sowman</a>, <a href="http://github.com/adamgreig" target="_blank">Adam Greig</a> and <a href="http://github.com/danielrichman">Daniel Richman</a> for <a href="http://www.cuspaceflight.co.uk" target="_blank">CUSF</a>.
-    Credit also to <a href="http://github.com/rjw57" target="_blank">Rich Wareham</a> for work on the predictor. Some parts of code taken from old landing prediction software, credit to Rob Anderson, Fergus Noble and Ed Moore.</p>
-    <p>Work to switch to Leaflet mapping and to use the <a href="https://github.com/projecthorus/tawhiri/" target="_blank">Tawhiri API</a> by <a href="http://github.com/darksidelemm" target="_blank">Mark Jessop</a>, for the <a href="https://github.com/projecthorus/sondehub-infra/wiki" target="_blank">SondeHub</a> project.
-    The <a href="https://github.com/projecthorus/tawhiri/#sondehub-tawhiri-instance" target="_blank">Sondehub instance</a> of the Tawhiri API is available for use in non-commercial applications.
+    <h3>WASA 気球実験用 着地点予測ツール (CUSF/Tawhiri ベース Fork) (<a href="https://github.com/projecthorus/leaflet_predictor/wiki" target="_blank">元プロジェクト情報</a>)</h3>
+    <p>ラテックス観測気球の飛行経路と着地点を予測するツールです。</p>
+    <p>本ツールは <a href="http://www.cuspaceflight.co.uk" target="_blank">CUSF</a> 向けに <a href="http://github.com/jonsowman" target="_blank">Jon Sowman</a> / <a href="http://github.com/adamgreig" target="_blank">Adam Greig</a> / <a href="http://github.com/danielrichman">Daniel Richman</a> らが構築し、<a href="http://github.com/rjw57" target="_blank">Rich Wareham</a> 他の貢献を含むオリジナルコードを基に WASA 気球実験向けに日本語化・機能拡張 (JST 対応 / 愛媛モード 等) した派生版です。旧版由来部分には Rob Anderson / Fergus Noble / Ed Moore らのコードが含まれます。</p>
+    <p>Leaflet への移行と <a href="https://github.com/projecthorus/tawhiri/" target="_blank">Tawhiri API</a> 利用は <a href="http://github.com/darksidelemm" target="_blank">Mark Jessop</a> により <a href="https://github.com/projecthorus/sondehub-infra/wiki" target="_blank">SondeHub</a> プロジェクトとして実施。Tawhiri API の <a href="https://github.com/projecthorus/tawhiri/#sondehub-tawhiri-instance" target="_blank">Sondehub インスタンス</a> は非商用用途で利用可能です。</p>
     </p>
-    <p>This predictor uses data from the NOAA GFS models.</p>
-    <p>No guarantee is given for the accuracy, precision or reliability of the data produced by this software, and you use it entirely at your own risk. For more information, see #highaltitude on libera.chat</p>
-    <p>This predictor is intended for <b>non-commercial use only</b>. If you are using this predictor in a commercial setting, please <a href="https://github.com/projecthorus/sondehub-amateur-tracker/wiki/Guide-for-HabHub-Users#for-commercial-users" target="_blank">read this page.</a></p>
+    <p>本予測ツールは NOAA GFS モデルのデータを使用しています。</p>
+    <p>本ソフトウェアが生成するデータの正確性・精度・信頼性は保証されません。利用は自己責任でお願いします。詳しくは libera.chat の #highaltitude を参照してください。</p>
+    <p>この予測ツールは <b>非商用利用のみ</b> を目的としています。商用利用の場合は <a href="https://github.com/projecthorus/sondehub-amateur-tracker/wiki/Guide-for-HabHub-Users#for-commercial-users" target="_blank">このページ</a> をご覧ください。</p>
     <p>
-        Copyright 2013 Cambridge University Space Flight
+    Original Copyright 2013 Cambridge University Space Flight / Adaptation for WASA Balloon Experiments 日本語化・拡張 2025
     </p>
-    <h3>Burst Calculator</h3>
-        <p><a href="https://sondehub.org/calc">Burst Calculator Web Page</a></p>
-    <h4>Usage</h4>
+    <h3>バースト計算機</h3>
+        <p><a href="https://sondehub.org/calc">バースト計算機 Web ページ</a></p>
+    <h4>使い方</h4>
         <p>
-            This calculator is designed to help you find how much gas to put into a high altitude balloon
-            to achieve a desired burst altitude or ascent rate. You have to know the payload mass (including
-            parachute) and balloon mass.
+            この計算機は目標バースト高度または上昇速度を得るために投入すべきガス量を求めるためのものです。ペイロード質量（パラシュート含む）と気球質量を把握している必要があります。
         </p>
         <p>
-            Usage is very straightforward: enter the payload mass into the first box, select the balloon
-            mass from the second box, and type in either a desired burst altitude in meters or ascent rate
-            in meters per second in the relevent box. Pressing enter or clicking away from the box you are
-            typing into will run the calculations, displaying the results in the box at the bottom.
+            使い方: 最初の欄にペイロード質量、次に気球質量を選択し、目標バースト高度 (m) か上昇速度 (m/s) のどちらかを入力します。Enter またはフォーカス移動で計算が実行され、結果が下部に表示されます。
         </p>
         <p>
-            The 'Constants' box can be used to adjust constants used by the calculator. These include
-            selecting a type of gas (or entering a custom gas density), adjusting modelling parameters
-            or entering a custom burst diameter or drag coefficient for your balloon. Click the tick box
-            next to the burst diameter or drag coefficient boxes to use a custom value, otherwise the
-            appropriate value for your selected balloon will be used.
+            『定数』セクションでガス種別（またはカスタム密度）、モデルパラメータ、バースト直径、抗力係数を調整できます。チェックを入れるとカスタム値、無ければ気球タイプに応じた標準値が使われます。
         </p>
-    <h4>About</h4>
+    <h4>概要</h4>
         <p>
-            Written by Adam Greig for CUSF in March 2010. Maths derived from `burst1a` spreadsheet by
-            Steve Randall. Balloon information from Kaymont Totex sounding balloon data.
+            2010年3月 Adam Greig (CUSF) 作成。数式は Steve Randall の `burst1a` シートに基づき、気球情報は Kaymont Totex データより。WASA 版では表示と一部入出力 (JST/日本語 UI) のみ変更。
         </p>
         <p>
-            No guarantee is given for the accuracy of any data included or produced by this program, use
-            at your own risk.
+            本プログラムのデータ正確性は保証されません。自己責任でご利用ください。
         </p>
         <p>
-            Copyright 2010 Cambridge University Space Flight
+            Original Copyright 2010 Cambridge University Space Flight / WASA Adaptation 2025
         </p>
 
 </div>
@@ -177,14 +162,14 @@
 <div id="burst-calc-wrapper" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
     <div id="burst-calc">
-        <b>Burst Calculator</b>
+    <b>バースト計算機</b>
         <br>
         <table id="input_table">
             <tr class="input_row">
-                <td class="input_label" colspan="2">Payload Mass (g)</td>
-                <td class="input_instruction" rowspan="3">AND</td>
+                <td class="input_label" colspan="2">ペイロード質量 (g)</td>
+                <td class="input_instruction" rowspan="3">かつ</td>
 
-                <td class="input_label" colspan="2">Balloon Mass (g)</td>
+                <td class="input_label" colspan="2">気球質量 (g)</td>
             </tr>
             <tr class="input_row">
                 <td colspan="2">
@@ -230,13 +215,13 @@
                 <td colspan="2" id="mb_w">&nbsp;</td>
             </tr>
             <tr>
-                <td class="input_instruction" colspan="5">THEN</td>
+                <td class="input_instruction" colspan="5">次に</td>
             </tr>
             <tr class="input_row">
-                <td class="input_label" colspan="2">Target Burst Altitude (m)</td>
+                <td class="input_label" colspan="2">目標バースト高度 (m)</td>
 
-                <td class="input_instruction" rowspan="3">OR</td>
-                <td class="input_label" colspan="2">Target Ascent Rate (m/s)</td>
+                <td class="input_instruction" rowspan="3">または</td>
+                <td class="input_label" colspan="2">目標上昇速度 (m/s)</td>
             </tr>
             <tr class="input_row">
                 <td colspan="2">
@@ -252,23 +237,23 @@
                 <td id="tar_w" colspan="2">&nbsp;</td>
             </tr>
             <tr class="output_row">
-                <td class="output_label">Burst Altitude:</td>
+                <td class="output_label">バースト高度:</td>
                 <td class="output_data"><span id="ba">33000</span> m</td>
                 <td></td>
-                <td class="output_label">Ascent Rate:</td>
+                <td class="output_label">上昇速度:</td>
                 <td class="output_data"><span id="ar">2.33</span> m/s</td>
 
             </tr>
             <tr class="output_row">
-                <td class="output_label">Time to Burst:</td>
+                <td class="output_label">バーストまでの時間:</td>
                 <td class="output_data"><span id="ttb">238</span> min</td>
                 <td></td>
-                <td class="output_label">Neck Lift:</td>
+                <td class="output_label">ネックリフト:</td>
                 <td class="output_data"><span id="nl">1733</span> g</td>
 
             </tr>
             <tr class="output_row">
-                <td class="output_label">Launch Volume:</td>
+                <td class="output_label">投入体積:</td>
                 <td class="output_data"><span id="lv_m3">2.66</span> 
                     m<sup>3</sup></td>
                 <td></td>
@@ -280,20 +265,20 @@
         </table>
         <br>
         <input type="button" id="burst-calc-advanced-show"
-            name="burst-calc-advanced-show" value="Advanced">
+            name="burst-calc-advanced-show" value="詳細">
         <input type="button" id="burst-calc-use" name="burst-calc-submit" 
-            value="Use Values"/ >
+            value="値を使用"/ >
         <input type="button" id="burst-calc-close" name="burst-calc-submit" 
-            value="Close"/ >
+            value="閉じる"/ >
     </div>
 
     <!-- these are the burst calc constants -->
     <div id="burst-calc-constants">
-        <div class="constants_header">Constants</div><br />
+        <div class="constants_header">定数</div><br />
         <div class="constants_warning">
-            For advanced use only! You can probably leave these alone.
+            上級者向けです。通常は変更不要です。
         </div><br />
-        <label class="constant_label" for="gas">Gas</label><br />
+        <label class="constant_label" for="gas">ガス</label><br />
         <select id="gas" class="constant_field">
             <option value="he">Helium</option>
             <option value="h">Hydrogen</option>
@@ -301,25 +286,25 @@
             <option value="ch4">Methane</option>
             <option value="custom">Custom</option>
         </select><br />
-        <label class="constant_label" for="rho_g">Gas Density (kg/m<sup>3</sup>)</label><br />
+    <label class="constant_label" for="rho_g">ガス密度 (kg/m<sup>3</sup>)</label><br />
         <input type="text" id="rho_g" value="0.1786" class="constant_field" size="9" disabled="disabled"/><br />
-        <label class="constant_label" for="rho_a">Air Density (kg/m<sup>3</sup>)</label><br />
+    <label class="constant_label" for="rho_a">空気密度 (kg/m<sup>3</sup>)</label><br />
 
         <input type="text" id="rho_a" value="1.2050" class="constant_field" size="9"/><br />
-        <label class="constant_label" for="adm">Air Density Model</label><br />
+    <label class="constant_label" for="adm">空気密度モデル</label><br />
         <input type="text" id="adm" value="7238.3" class="constant_field" size="9"/><br />
-        <label class="constant_label" for="ga">Gravitational<br />Acceleration (m/s<sup>2</sup>)</label><br />
+    <label class="constant_label" for="ga">重力加速度 (m/s<sup>2</sup>)</label><br />
         <input type="text" id="ga" value="9.80665" class="constant_field" size="9" /><br />
-        <label class="constant_label" for="bd">Burst Diameter (m)</label><br />
+    <label class="constant_label" for="bd">バースト直径 (m)</label><br />
 
         <input type="checkbox" id="bd_c" />
         <input type="text" id="bd" class="constant_field" size="9" disabled="disabled" value="7.86"/><br />
-        <label class="constant_label" for="cd">Balloon Cd</label><br />
+    <label class="constant_label" for="cd">気球 Cd</label><br />
         <input type="checkbox" id="cd_c" />
         <input type="text" id="cd" class="constant_field" size="9" disabled="disabled" value="0.3"/><br />
         <br />
         <input type="button" id="burst-calc-advanced-hide" 
-            name="burst-calc-advanced-hide" value="Back">
+            name="burst-calc-advanced-hide" value="戻る">
     </div>
 </div>
 
@@ -327,18 +312,18 @@
 <div id="notam-settings-wrapper" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
     <div id="notam-settings">
-        <b>Advanced NOTAM & Airspace Settings</b>
-        <p>
-	<b>NB This is not yet functional !!!</b>
+    <b>高度な NOTAM & 空域設定</b>
+    <p>
+	<b>※ まだ機能していません</b>
         <table id="input_table">
             <tr>
 	    <td> 
-<form name="userselection" action = "" method = "GET"  ><fieldset id="notamsFieldset" name="notams" ><legend>NOTAM details</legend><div id="notamsDiv" style="display: block"><input type="checkbox" name="warnings" id="warnings" onclick="setNOTAMs();" value="yes" checked="checked" />Show NOTAMs<br /></fieldset><fieldset id="airspaceFieldset"><legend>Airspace Details</legend><div id="airspaceDiv" style="display: block"><input type="checkbox" id = "defaultAirspace" name="default" value="yes" onclick="showStdAirspace();"/>Show Default airspace<br><input type="checkbox" id="clA" name="clA" value="yes" onclick="setAirspace();"/>Show class A airspace<br><input type="checkbox" id="clD" name="clD" value="yes" onclick="setAirspace();"/>Show class D airspace<br><input type="checkbox" id="clE" name="clE" value="yes" onclick="setAirspace();"/>Show class E airspace<br><input type="checkbox" id="clG" name="clG" value="yes" onclick="setAirspace();"/>Show class G airspace<br><input type="checkbox" id="clP" name="clP" value="yes" onclick="setAirspace();"/>Show prohibited airspace<br><input type="checkbox" id="clR" name="clR" value="yes" onclick="setAirspace();"/>Show restricted airspace<br><input type="checkbox" id="clM" name="clM" value="yes" onclick="setAirspace();"/>Show MATZs<br><input type="checkbox" id="clQ" name="clQ" value="yes" onclick="setAirspace();"/>Show danger areas<br><input type="checkbox" id="clX" name="clX" value="yes" onclick="setAirspace();"/>Show offshore/NOTAMed danger areas<br><input type="checkbox" id="clH" name="clH" value="yes" onclick="setAirspace();"/>Show hazards (HIRTA/AIAA etc)</fieldset></tr></table></form>
+<form name="userselection" action = "" method = "GET"  ><fieldset id="notamsFieldset" name="notams" ><legend>NOTAM 詳細</legend><div id="notamsDiv" style="display: block"><input type="checkbox" name="warnings" id="warnings" onclick="setNOTAMs();" value="yes" checked="checked" />NOTAM を表示<br /></fieldset><fieldset id="airspaceFieldset"><legend>空域詳細</legend><div id="airspaceDiv" style="display: block"><input type="checkbox" id = "defaultAirspace" name="default" value="yes" onclick="showStdAirspace();"/>標準空域を表示<br><input type="checkbox" id="clA" name="clA" value="yes" onclick="setAirspace();"/>クラス A 空域<br><input type="checkbox" id="clD" name="clD" value="yes" onclick="setAirspace();"/>クラス D 空域<br><input type="checkbox" id="clE" name="clE" value="yes" onclick="setAirspace();"/>クラス E 空域<br><input type="checkbox" id="clG" name="clG" value="yes" onclick="setAirspace();"/>クラス G 空域<br><input type="checkbox" id="clP" name="clP" value="yes" onclick="setAirspace();"/>進入禁止空域<br><input type="checkbox" id="clR" name="clR" value="yes" onclick="setAirspace();"/>制限空域<br><input type="checkbox" id="clM" name="clM" value="yes" onclick="setAirspace();"/>MATZ<br><input type="checkbox" id="clQ" name="clQ" value="yes" onclick="setAirspace();"/>危険区域<br><input type="checkbox" id="clX" name="clX" value="yes" onclick="setAirspace();"/>洋上/NOTAM 危険域<br><input type="checkbox" id="clH" name="clH" value="yes" onclick="setAirspace();"/>ハザード (HIRTA/AIAA 等)</fieldset></tr></table></form>
             </td>
             </tr>
         </table>
         <input type="button" id="notam-settings-close" name="notam-settings-submit" 
-            value="Close"/ >
+            value="閉じる"/ >
     </div>
 </div>
 
@@ -348,10 +333,10 @@
     <form action="" id="modelForm" name="modelForm">
     <table id="launch-card">
         <tr>
-            <td>Launch Site:
+            <td>打ち上げサイト:
                 <span>
                     <a id="cookieLocations" class="tipsyLink" 
-                        title="View your saved launch sites">Custom</a>
+                        title="保存された打ち上げサイトを表示">カスタム</a>
                 </span>
             </td>
             <td>
@@ -360,7 +345,7 @@
             </td>
         </tr>
         <tr>
-            <td>Latitude/Longitude:</td>
+            <td>緯度 / 経度:</td>
             <td>
                 <input id="lat" type="text" size="8" name="lat" value="-34.0297" 
                     onKeyDown="SetSiteOther()">&nbsp;/&nbsp;
@@ -371,77 +356,77 @@
         <tr>
             <td>
                 <span><a id="setWithClick" class="tipsyLink" 
-                    title="Use the map to set your desired launch site">
-                    Set With Map</a></span>
+                    title="マップを使って打ち上げ地点を設定">
+                    マップで設定</a></span>
             </td>
             <td>
                 <span>
                     <a id="req_open" class="tipsyLink" 
-                        title="Save this location to a browser cookie">
-                        Save Location</a>
+                        title="この位置をブラウザに保存">
+                        位置を保存</a>
                 </span>
             </td>
         </tr>
         <tr>
-            <td>Launch altitude (m):</td>
+            <td>打ち上げ高度 (m):</td>
             <td>
                 <input id="initial_alt" type="text" name="initial_alt" 
                     value="0">
             </td>
         </tr>
         <tr>
-            <td>Launch Time (UTC):</td>
+            <td>打ち上げ時刻 (JST):</td>
             <td>
                     <input id="hour" type="text" name="hour" value="" maxlength="2" size="2"> :
                     <input id="min" type="text" name="min" value="" maxlength="2" size="2">
                     <input id="sec" type="hidden" name="second" value="0"></td></tr>
-                    <tr><td>Launch Date:</td><td>
+                    <tr><td>打ち上げ日付:</td><td>
                     <input id="day" type="text" name="day" value="" maxlength="2" size="2">
                     <select id="month" name="month">
                         <!-- Hard-coding these options in. These were generated by PHP in the old code. -->
-                        <option value="1">Jan</option>
-                        <option value="2">Feb</option>
-                        <option value="3">Mar</option>
-                        <option value="4">Apr</option>
-                        <option value="5">May</option>
-                        <option value="6">Jun</option>
-                        <option value="7">Jul</option>
-                        <option value="8">Aug</option>
-                        <option value="9">Sep</option>
-                        <option value="10">Oct</option>
-                        <option value="11">Nov</option>
-                        <option value="12">Dec</option>
+                        <option value="1">1月</option>
+                        <option value="2">2月</option>
+                        <option value="3">3月</option>
+                        <option value="4">4月</option>
+                        <option value="5">5月</option>
+                        <option value="6">6月</option>
+                        <option value="7">7月</option>
+                        <option value="8">8月</option>
+                        <option value="9">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12">12月</option>
                     </select>
                     <input id="year" type="text" name="year" value="" maxlength="4" size="4">
             </td>
         <tr>
             <td>
-                Ascent Rate (m/s): 
+                上昇速度 (m/s): 
             </td>
             <td><input id="ascent" type="text" name="ascent" value="5"></td>
         </tr>
         <tr>
-            <td>Burst/Float Altitude (m):</td>
+            <td>バースト/浮遊高度 (m):</td>
             <td><input id="burst" type="text" name="burst" value="30000"></td>
         </tr>
         <tr>
-            <td>Flight Profile:</td>
+            <td>フライトプロファイル:</td>
             <td><select id="flight_profile">
-                <option value="standard_profile" selected="selected">Standard</option>
-                <option value="float_profile">Float</option>
-                <option value="reverse_profile">Reverse (ascent only)</option>
+                <option value="standard_profile" selected="selected">標準</option>
+                <option value="float_profile">浮遊</option>
+                <option value="reverse_profile">逆転 (上昇のみ)</option>
             </select></td>
         </tr>
         <tr>
             <td colspan="2">
                 <a id="burst-calc-show" class="tipsyLink"
-                    title="Use a calculator to find highlighted values">
-                    Use Burst Calculator</a>
+                    title="計算機を使用してハイライトされた値を計算">
+                    バースト計算機を使用</a>
             </td>
         </tr>
         <tr>
             <td>
-                Descent Rate (<a class="tipsyLink" title="At sea level">m/s</a>):
+                下降速度 (<a class="tipsyLink" title="海面レベル">m/s</a>):
             </td>
             <td><input id="drag" type="text" name="drag" value="5"></td>
         </tr>
@@ -454,19 +439,32 @@
             </td>
         </tr> -->
         <tr>
-            <td>Prediction Type (<a class="tipsyLink" title="Information on the hourly/daily prediction functions." href="https://github.com/projecthorus/leaflet_predictor/wiki#using-the-hourlydaily-prediction-functionality" target="_blank">info</a>):</td>
+            <td>予測タイプ (<a class="tipsyLink" title="時間毎/日次予測機能の情報" href="https://github.com/projecthorus/leaflet_predictor/wiki#using-the-hourlydaily-prediction-functionality" target="_blank">説明</a>):</td>
             <td><select id="prediction_type">
-                <option value="single" selected="selected">Single</option>
-                <option value="1_hour">Hourly</option>
-                <option value="3_hour">3-Hourly</option>
-                <option value="6_hour">6-Hourly</option>
-                <option value="12_hour">12-Hourly</option>
-                <option value="daily">Daily</option>
+                <option value="single" selected="selected">単一</option>
+                <option value="1_hour">毎時</option>
+                <option value="3_hour">3時間毎</option>
+                <option value="6_hour">6時間毎</option>
+                <option value="12_hour">12時間毎</option>
+                <option value="daily">日次</option>
+                <option value="ehime">愛媛気球実験用</option>
             </select></td>
+        </tr>
+        <tr id="ehime_info_row" style="display:none">
+            <td colspan="2" style="font-size:11px; line-height:1.4em; background:#f4f8ff; border:1px solid #ccd; padding:4px;">
+                <b>愛媛気球実験モード</b><br>
+                上昇速度許容範囲: <span id="ehime_ascent_range">-</span><br>
+                下降速度許容範囲: <span id="ehime_descent_range">-</span><br>
+                破裂判定: 気球径判定(球)<br>
+                破裂高度マージン: <span id="ehime_burst_margin">-</span><br>
+                シミュレーション完了: <span id="ehime_completed">0</span>/<span id="ehime_total">0</span><br>
+                着地点平均: <span id="ehime_mean">-</span><br>
+                最大偏差距離: <span id="ehime_max_dev">-</span> km
+            </td>
         </tr>
         <tr>
             <td></td>
-            <td><input name="submit" id="run_pred_btn" onclick="runPrediction();" value="Run Prediction">
+            <td><input name="submit" id="run_pred_btn" onclick="runPrediction();" value="予測を実行">
             </td>
         </tr>
     </table>

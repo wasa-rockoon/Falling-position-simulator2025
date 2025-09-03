@@ -21,23 +21,29 @@ function initLaunchCard(){
     // $('#min').val(today.getMinutes());
     // $('#sec').val(today.getSeconds());
 
-    var today = moment.utc();
+    // Use local JST (UTC+9) for display, but keep backend in UTC.
+    var todayUtc = moment.utc();
+    var todayJst = todayUtc.clone().utcOffset(9 * 60); // JST offset +09:00
 
-    $('#year').val(today.year());
-    $('#day').val(today.date());
-    var month = today.month()+1;
+    // Always refresh to current JST when page (re)loads unless URL params override later.
+    $('#year').val(todayJst.year());
+    $('#day').val(todayJst.date());
+    var month = todayJst.month()+1;
     $("#month").val(month).change();
-    $('#hour').val(today.hours());
-    $('#min').val(today.minutes());
+    $('#hour').val(todayJst.hours());
+    $('#min').val(todayJst.minutes());
 }
 
 
 function runPrediction(){
     // Read the user-supplied parameters and request a prediction.
+    // Always clear previous prediction artifacts first.
+    clearMapItems();
     var run_settings = {};
     var extra_settings = {};
     run_settings.profile = $('#flight_profile').val();
     run_settings.pred_type = $('#prediction_type').val();
+    var ehime_mode = (run_settings.pred_type === 'ehime');
     
     // Grab date values
     var year = $('#year').val();
@@ -46,8 +52,10 @@ function runPrediction(){
     var hour = $('#hour').val();
     var minute = $('#min').val();
 
-    // Months are zero-indexed in Javascript. Wat.
-    var launch_time = moment.utc([year, month-1, day, hour, minute, 0, 0]);
+    // 入力は JST (UTC+9) 想定。UTC に変換して保持。
+    // Months are zero-indexed in Javascript.
+    var launch_time_local = moment.tz ? moment.tz([year, month-1, day, hour, minute, 0, 0], 'Asia/Tokyo') : moment([year, month-1, day, hour, minute, 0, 0]).utcOffset(9*60);
+    var launch_time = launch_time_local.clone().utc();
     run_settings.launch_datetime = launch_time.format();
     extra_settings.launch_moment = launch_time;
 
@@ -77,6 +85,30 @@ function runPrediction(){
     } else {
         run_settings.float_altitude = parseFloat($('#burst').val());
         run_settings.stop_datetime = launch_time.add(1, 'days').format();
+    }
+
+    // 愛媛モード: 表示上の許容範囲やマージン情報を計算（API送信値はそのまま）
+    if(ehime_mode){
+        var asc = run_settings.ascent_rate;
+        var desc = run_settings.descent_rate;
+        if(!isNaN(asc)){
+            $('#ehime_ascent_range').text((asc-1).toFixed(2)+ ' ～ ' + (asc+1).toFixed(2) + ' m/s');
+        } else {
+            $('#ehime_ascent_range').text('N/A');
+        }
+        if(!isNaN(desc)){
+            $('#ehime_descent_range').text((desc-3).toFixed(2)+ ' ～ ' + (desc+3).toFixed(2) + ' m/s');
+        } else {
+            $('#ehime_descent_range').text('N/A');
+        }
+        if(!isNaN(run_settings.burst_altitude)){
+            var b = run_settings.burst_altitude;
+            var upper = (b * 1.10).toFixed(0);
+            var lower = (b * 0.80).toFixed(0);
+            $('#ehime_burst_margin').text(lower + ' m ～ ' + upper + ' m');
+        } else {
+            $('#ehime_burst_margin').text('N/A');
+        }
     }
 
 
@@ -114,6 +146,17 @@ function runPrediction(){
 
 }
 
+// Prediction type change: toggle Ehime info row
+$(document).on('change', '#prediction_type', function(){
+    if($(this).val()==='ehime'){
+        $('#ehime_info_row').show();
+        // Trigger recalculation display once.
+        try { runPrediction(); } catch(e) { /* ignore early errors */ }
+    } else {
+        $('#ehime_info_row').hide();
+    }
+});
+
 // Tawhiri API URL. Refer to API docs here: https://tawhiri.readthedocs.io/en/latest/api.html
 // Habitat Tawhiri Instance
 //var tawhiri_api = "https://predict.cusf.co.uk/api/v1/";
@@ -121,12 +164,19 @@ function runPrediction(){
 var tawhiri_api = "https://api.v2.sondehub.org/tawhiri";
 // Approximately how many hours into the future the model covers.
 var MAX_PRED_HOURS = 169;
+// Ehime mode storage
+var ehime_current = null;
+var ehime_predictions = {}; // variant_id -> {settings, status, results, marker}
+var ehime_variant_total = 0;
+var ehime_mean_marker = null;
+var ehime_dispersion_circle = null;
+var ehime_burst_circle = null;
 
 function tawhiriRequest(settings, extra_settings){
     // Request a prediction via the Tawhiri API.
     // Settings must be as per the API docs above.
 
-    if(settings.pred_type=='single'){
+    if(settings.pred_type=='single' ){
         hourly_mode = false;
         $.get( tawhiri_api, settings )
             .done(function( data ) {
@@ -145,6 +195,13 @@ function tawhiriRequest(settings, extra_settings){
                 //throwError("test.");
                 //console.log(data);
             });
+    } else if (settings.pred_type=='ehime') {
+        // Custom multi-variant prediction set for Ehime mode
+        if(settings.profile != 'standard_profile'){
+            throwError('愛媛モードは標準フライトプロファイルのみ対応');
+            return;
+        }
+        runEhimePredictions(settings, extra_settings);
     } else {
         // For Multiple predictions, we do things a bit differently.
         hourly_mode = true;
@@ -172,7 +229,7 @@ function tawhiriRequest(settings, extra_settings){
             return;
         }
 
-        if(settings.profile != "standard_profile"){
+    if(settings.profile != "standard_profile"){
             throwError("Hourly/Daily predictions are only available for the standard flight profile.");
             return;
         }
@@ -227,6 +284,198 @@ function tawhiriRequest(settings, extra_settings){
     }
 }
 
+// Generate and run multiple variant predictions for Ehime mode
+function runEhimePredictions(base_settings, extra_settings){
+    // Clear previous map items & state
+    clearMapItems();
+    ehime_predictions = {};
+    ehime_current = { base: base_settings };
+
+    var asc_base = base_settings.ascent_rate;
+    var desc_base = base_settings.descent_rate;
+    var burst_base = base_settings.burst_altitude; // only standard_profile
+    // Calculate variant values
+    var asc_min = asc_base - 1.0;
+    var asc_max = asc_base + 1.0;
+    var desc_min = desc_base - 3.0;
+    var desc_max = desc_base + 3.0;
+    var burst_low = burst_base * 0.8;
+    var burst_high = burst_base * 1.10;
+
+    // Build variant list (13 variants: base + singles + paired extremes)
+    var variants = [];
+    function addVariant(a,d,b,label){
+        variants.push({ascent_rate:a, descent_rate:d, burst_altitude:b, label:label});
+    }
+    addVariant(asc_base, desc_base, burst_base, 'BASE');
+    addVariant(asc_min, desc_base, burst_base, 'ASC-');
+    addVariant(asc_max, desc_base, burst_base, 'ASC+');
+    addVariant(asc_base, desc_min, burst_base, 'DES-');
+    addVariant(asc_base, desc_max, burst_base, 'DES+');
+    addVariant(asc_base, desc_base, burst_low,  'BURST-');
+    addVariant(asc_base, desc_base, burst_high, 'BURST+');
+    addVariant(asc_min, desc_min, burst_base,   'A-D-');
+    addVariant(asc_max, desc_max, burst_base,   'A+D+');
+    addVariant(asc_min, desc_base, burst_low,   'A-B-');
+    addVariant(asc_max, desc_base, burst_high,  'A+B+');
+    addVariant(asc_base, desc_min, burst_low,   'D-B-');
+    addVariant(asc_base, desc_max, burst_high,  'D+B+');
+
+    ehime_variant_total = variants.length;
+    $('#ehime_total').text(ehime_variant_total);
+    $('#ehime_completed').text(0);
+    $('#ehime_mean').text('-');
+    $('#ehime_max_dev').text('-');
+
+    // Launch all requests
+    variants.forEach(function(v, idx){
+        var v_settings = {...base_settings};
+        v_settings.ascent_rate = v.ascent_rate;
+        v_settings.descent_rate = v.descent_rate;
+        v_settings.burst_altitude = v.burst_altitude;
+        // Unique label for marker & internal key
+        var variant_id = 'ehime_'+idx;
+        ehime_predictions[variant_id] = {settings:v_settings, status:'pending', label:v.label};
+        $.get( tawhiri_api, v_settings )
+            .done(function(data){
+                processEhimeResult(data, v_settings, variant_id, idx);
+            })
+            .fail(function(data){
+                ehime_predictions[variant_id].status='error';
+                // Continue; do not throw global error.
+                updateEhimeSummaryFromStore();
+            });
+    });
+}
+
+function processEhimeResult(data, settings, variant_id, variant_index){
+    if(data.hasOwnProperty('error')){
+        ehime_predictions[variant_id].status='error';
+        updateEhimeSummaryFromStore();
+        return;
+    }
+    var prediction_results = parsePrediction(data.prediction);
+    ehime_predictions[variant_id].status='ok';
+    ehime_predictions[variant_id].results = prediction_results;
+
+    // Plot base path for BASE only once
+    if(ehime_predictions[variant_id].label==='BASE'){
+        // Pass settings so popups can show conditions
+        plotStandardPrediction(prediction_results, settings);
+    }
+
+    // Plot landing marker for each variant
+    plotEhimeLandingMarker(variant_id, variant_index);
+    updateEhimeSummaryFromStore();
+}
+
+function plotEhimeLandingMarker(variant_id, variant_index){
+    var entry = ehime_predictions[variant_id];
+    if(!entry.results) return;
+    var landing = entry.results.landing;
+    var launch = entry.results.launch;
+    var color = ConvertRGBtoHex(evaluate_cmap((variant_index+1)/(ehime_variant_total+1), 'turbo'));
+    var marker = new L.CircleMarker(landing.latlng, {
+        radius: (entry.label==='BASE')?6:4,
+        fillOpacity: 1.0,
+        zIndexOffset: 1200,
+        fillColor: color,
+        stroke: true,
+        weight: 1,
+        color: '#000000'
+    }).addTo(map);
+    // Build condition difference description vs BASE
+    var base = ehime_current && ehime_current.base ? ehime_current.base : null;
+    var diff_desc = [];
+    if(base){
+        if(entry.settings.ascent_rate !== base.ascent_rate){
+            diff_desc.push('上昇'+ (entry.settings.ascent_rate>base.ascent_rate?'+':'-') + '1 m/s');
+        }
+        if(entry.settings.descent_rate !== base.descent_rate){
+            diff_desc.push('下降'+ (entry.settings.descent_rate>base.descent_rate?'+':'-') + '3 m/s');
+        }
+        if(entry.settings.burst_altitude !== base.burst_altitude){
+            var ratio = entry.settings.burst_altitude / base.burst_altitude;
+            if(ratio>1){ diff_desc.push('破裂+10%'); } else { diff_desc.push('破裂-20%'); }
+        }
+    }
+    var desc_line = diff_desc.length? ('変更: '+diff_desc.join(', ')) : '変更: なし (基準)';
+    var popup_html = '<b>'+entry.label+'</b><br/>'+
+        desc_line + '<br/>'+
+        '着地点: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        '上昇:'+entry.settings.ascent_rate.toFixed(2)+' m/s / 下降:'+entry.settings.descent_rate.toFixed(2)+' m/s<br/>'+
+        '破裂高度:'+entry.settings.burst_altitude.toFixed(0)+' m<br/>'+
+        '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST';
+    marker.bindPopup(popup_html);
+    ehime_predictions[variant_id].marker = marker;
+}
+
+function updateEhimeSummaryFromStore(){
+    var completed = Object.values(ehime_predictions).filter(p=>p.status==='ok');
+    $('#ehime_completed').text(completed.length);
+    if(completed.length === 0){
+        return;
+    }
+    // Mean landing
+    var sumLat=0,sumLon=0;
+    completed.forEach(p=>{sumLat+=p.results.landing.latlng.lat; sumLon+=p.results.landing.latlng.lng;});
+    var meanLat = sumLat / completed.length;
+    var meanLon = sumLon / completed.length;
+    $('#ehime_mean').text(meanLat.toFixed(4)+', '+meanLon.toFixed(4));
+    // Max deviation
+    var maxDev = 0;
+    completed.forEach(p=>{
+        var d = distHaversine({lat:meanLat,lng:meanLon},{lat:p.results.landing.latlng.lat,lng:p.results.landing.latlng.lng},2);
+        if(d>maxDev) maxDev = d;
+    });
+    $('#ehime_max_dev').text(parseFloat(maxDev).toFixed(2));
+
+    // Draw/update mean marker
+    if(ehime_mean_marker){ try{ ehime_mean_marker.remove(); }catch(e){} }
+    var meanIcon = L.divIcon({className:'ehime-mean-icon', html:'<div style="width:14px;height:14px;border:2px solid #0044cc;border-radius:50%;background:rgba(0,102,255,0.15);"></div>'});
+    ehime_mean_marker = L.marker([meanLat, meanLon], {icon:meanIcon, title:'Ehime 平均着地点'}).addTo(map);
+    map_items['ehime_mean_marker'] = ehime_mean_marker;
+
+    // Draw/update total dispersion circle (max deviation km => m)
+    if(ehime_dispersion_circle){ try{ ehime_dispersion_circle.remove(); }catch(e){} }
+    ehime_dispersion_circle = L.circle([meanLat, meanLon], {
+        radius: parseFloat(maxDev)*1000.0,
+        color:'#1f78b4',
+        weight:1,
+        dashArray:'4,3',
+        fillColor:'#1f78b4',
+        fillOpacity:0.05,
+        interactive:false
+    }).addTo(map);
+    if(ehime_dispersion_circle.bringToBack){ ehime_dispersion_circle.bringToBack(); }
+    map_items['ehime_dispersion_circle'] = ehime_dispersion_circle;
+
+    // Burst-only variation circle (subset variants containing 'B')
+    var burstCompleted = completed.filter(p=> p.label && p.label.indexOf('B')!==-1);
+    if(burstCompleted.length>0){
+        var bMaxDev = 0;
+        burstCompleted.forEach(p=>{
+            var d = distHaversine({lat:meanLat,lng:meanLon},{lat:p.results.landing.latlng.lat,lng:p.results.landing.latlng.lng},2);
+            if(d>bMaxDev) bMaxDev = d;
+        });
+        if(ehime_burst_circle){ try{ ehime_burst_circle.remove(); }catch(e){} }
+        ehime_burst_circle = L.circle([meanLat, meanLon], {
+            radius: parseFloat(bMaxDev)*1000.0,
+            color:'#ff6600',
+            weight:1,
+            dashArray:'2,4',
+            fillColor:'#ff6600',
+            fillOpacity:0.03,
+            interactive:false
+        }).addTo(map);
+        if(ehime_burst_circle.bringToBack){ ehime_burst_circle.bringToBack(); }
+        map_items['ehime_burst_circle'] = ehime_burst_circle;
+    } else if(ehime_burst_circle){
+        try{ ehime_burst_circle.remove(); }catch(e){}
+        delete map_items['ehime_burst_circle'];
+        ehime_burst_circle = null;
+    }
+}
 function processTawhiriResults(data, settings){
     // Process results from a Tawhiri run.
 
@@ -237,7 +486,18 @@ function processTawhiriResults(data, settings){
 
         var prediction_results = parsePrediction(data.prediction);
 
-        plotStandardPrediction(prediction_results);
+        var extended_results = prediction_results;
+        // If Ehime mode, apply burst-altitude margin stats (display only)
+        if(settings.pred_type === 'ehime'){
+            ehime_current = { base: settings, result: prediction_results };
+            // Compute center (landing) and spec ring radii based on ascent/descent variance
+            // For simplicity, treat ascent/descent variance as instantaneous speed bands and not re-simulate.
+            // Record for UI summary after plotting.
+        }
+    plotStandardPrediction(extended_results, settings);
+        if(settings.pred_type === 'ehime'){
+            updateEhimeSummary([extended_results]);
+        }
 
         writePredictionInfo(settings, data.metadata, data.request);
         
@@ -245,6 +505,26 @@ function processTawhiriResults(data, settings){
 
     //console.log(data);
 
+}
+
+// Update Ehime mode statistical summary (currently single prediction placeholder)
+function updateEhimeSummary(predictionArray){
+    // predictionArray: array of prediction result objects
+    $('#ehime_total').text(predictionArray.length);
+    $('#ehime_completed').text(predictionArray.length);
+    // Compute mean landing lat/lon
+    var sumLat=0, sumLon=0;
+    predictionArray.forEach(p=>{sumLat += p.landing.latlng.lat; sumLon += p.landing.latlng.lng;});
+    var meanLat = sumLat / predictionArray.length;
+    var meanLon = sumLon / predictionArray.length;
+    $('#ehime_mean').text(meanLat.toFixed(4)+', '+meanLon.toFixed(4));
+    // Max deviation distance from mean (km)
+    var maxDev = 0;
+    predictionArray.forEach(p=>{
+        var d = distHaversine({lat:meanLat,lng:meanLon}, {lat:p.landing.latlng.lat,lng:p.landing.latlng.lng}, 2);
+        if(d > maxDev) maxDev = d;
+    });
+    $('#ehime_max_dev').text(maxDev.toFixed(2));
 }
 
 function parsePrediction(prediction){
@@ -319,10 +599,13 @@ function parsePrediction(prediction){
     return {'flight_path': flight_path, 'launch': launch, 'burst': burst, 'landing':landing, 'profile': profile, 'flight_time': flight_time};
 }
 
-function plotStandardPrediction(prediction){
-
+function plotStandardPrediction(prediction, settings){
     appendDebug("Flight data parsed, creating map plot...");
-    clearMapItems();
+    // Avoid clearing existing Ehime variant markers when base path draws.
+    var ehimeActive = (typeof ehime_predictions !== 'undefined') && (Object.keys(ehime_predictions).length>0);
+    if(!ehimeActive){
+        clearMapItems();
+    }
 
     var launch = prediction.launch;
     var landing = prediction.landing;
@@ -363,29 +646,56 @@ function plotStandardPrediction(prediction){
         launch.latlng,
         {
             title: 'Balloon launch ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+') at ' 
-            + launch.datetime.format("HH:mm") + " UTC",
+            + launch.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: launch_icon
         }
     ).addTo(map);
+    // Build condition popup (launch)
+    var cond_html = '';
+    if(settings){
+        if(settings.profile==='standard_profile'){
+            cond_html += '<b>上昇速度:</b> '+settings.ascent_rate+' m/s<br/>';
+            cond_html += '<b>下降速度:</b> '+settings.descent_rate+' m/s<br/>';
+            cond_html += '<b>破裂高度:</b> '+settings.burst_altitude+' m<br/>';
+        } else {
+            cond_html += '<b>上昇速度:</b> '+settings.ascent_rate+' m/s<br/>';
+            cond_html += '<b>滞留高度:</b> '+settings.float_altitude+' m<br/>';
+        }
+    }
+    var launch_popup = '<b>離陸地点</b><br/>'+cond_html+
+        '<b>離陸時刻:</b> '+launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
+    launch_marker.bindPopup(launch_popup);
     
     var land_marker = L.marker(
         landing.latlng,
         {
             title: 'Predicted Landing ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+') at ' 
-            + landing.datetime.format("HH:mm") + " UTC",
+            + landing.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: land_icon
         }
     ).addTo(map);
+    var land_popup = '<b>着地点</b><br/>'+
+        '緯度経度: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        (settings && settings.profile==='standard_profile' ? '<b>上昇/下降:</b> '+settings.ascent_rate+' / '+settings.descent_rate+' m/s<br/>' : '')+
+        (settings && settings.profile==='standard_profile' ? '<b>破裂高度:</b> '+settings.burst_altitude+' m<br/>' : (settings?'<b>滞留高度:</b> '+settings.float_altitude+' m<br/>':''))+
+        '<b>着地時刻:</b> '+landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
+    land_marker.bindPopup(land_popup);
 
     var pop_marker = L.marker(
         burst.latlng,
         {
             title: 'Balloon burst ('+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+ 
             ' at altitude ' + burst.latlng.alt.toFixed(0) + ') at ' 
-            + burst.datetime.format("HH:mm") + " UTC",
+            + burst.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: burst_icon
         }
     ).addTo(map);
+    var burst_popup = '<b>破裂地点</b><br/>'+
+        '緯度経度: '+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+'<br/>'+
+        '<b>破裂高度:</b> '+burst.latlng.alt.toFixed(0)+' m<br/>'+
+        (settings && settings.profile==='standard_profile' ? '<b>上昇/下降:</b> '+settings.ascent_rate+' / '+settings.descent_rate+' m/s<br/>' : '')+
+        '<b>破裂時刻:</b> '+burst.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
+    pop_marker.bindPopup(burst_popup);
 
     var path_polyline = L.polyline(
         prediction.flight_path,
@@ -616,7 +926,7 @@ function showHideHourlyPrediction(e){
             {
                 title: 'Balloon burst ('+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+ 
                 ' at altitude ' + burst.latlng.alt.toFixed(0) + ') at ' 
-                + burst.datetime.format("HH:mm") + " UTC",
+                + burst.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
                 icon: burst_icon,
                 current_hour: current_hour
             }
