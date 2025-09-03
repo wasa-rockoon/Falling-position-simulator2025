@@ -150,10 +150,19 @@ function runPrediction(){
 $(document).on('change', '#prediction_type', function(){
     if($(this).val()==='ehime'){
         $('#ehime_info_row').show();
-        // Trigger recalculation display once.
-        try { runPrediction(); } catch(e) { /* ignore early errors */ }
+    // 自動実行を行わず、ユーザーの「予測を実行」ボタン押下を待つ。
+    // 以前の結果が残っていると紛らわしいため表示値をリセット。
+    $('#ehime_completed').text('0');
+    $('#ehime_total').text('0');
+    $('#ehime_mean').text('-');
+    $('#ehime_max_dev').text('-');
+    $('#ehime_ascent_range').text('-');
+    $('#ehime_descent_range').text('-');
+    $('#ehime_burst_margin').text('-');
+    $('#ehime_dlcsv').hide();
     } else {
         $('#ehime_info_row').hide();
+    $('#ehime_dlcsv').hide();
     }
 });
 
@@ -171,6 +180,70 @@ var ehime_variant_total = 0;
 var ehime_mean_marker = null;
 var ehime_dispersion_circle = null;
 var ehime_burst_circle = null;
+
+// Generate CSV for Ehime variant landing points (called on demand)
+function buildEhimeLandingCSV(){
+    if(typeof ehime_predictions === 'undefined') return '';
+    var completed = Object.values(ehime_predictions).filter(p=>p.status==='ok' && p.results && p.results.landing);
+    if(completed.length===0) return '';
+    var header = [
+        'label','landing_lat','landing_lon','ascent_rate','descent_rate','burst_altitude','launch_time_JST','landing_time_JST','flight_time_min'
+    ];
+    var rows = [header.join(',')];
+    completed.forEach(function(p){
+        var lat = p.results.landing.latlng.lat;
+        var lon = p.results.landing.latlng.lng;
+        var ascent = (p.settings && p.settings.ascent_rate!=null)?p.settings.ascent_rate:'';
+        var descent = (p.settings && p.settings.descent_rate!=null)?p.settings.descent_rate:'';
+        var burst = (p.settings && p.settings.burst_altitude!=null)?p.settings.burst_altitude:'';
+        var launchTime = p.results.launch && p.results.launch.datetime ? p.results.launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') : '';
+        var landingTime = p.results.landing && p.results.landing.datetime ? p.results.landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') : '';
+        var flightMinutes = '';
+        if(p.results.launch && p.results.landing && p.results.launch.datetime && p.results.landing.datetime){
+            flightMinutes = (p.results.landing.datetime.diff(p.results.launch.datetime,'minutes')).toFixed(0);
+        }
+        var cols = [p.label, lat.toFixed(5), lon.toFixed(5), ascent, descent, burst, launchTime, landingTime, flightMinutes];
+        // Escape any commas (shouldn't be present) & quote if needed
+        cols = cols.map(function(c){
+            if(typeof c === 'string' && c.indexOf(',')!==-1){ return '"'+c.replace(/"/g,'""')+'"'; }
+            return c;
+        });
+        rows.push(cols.join(','));
+    });
+    return rows.join('\n');
+}
+
+function updateEhimeCSVLink(){
+    var link = $('#ehime_dlcsv');
+    if(link.length===0) return; // Not present
+    // Only show if prediction_type is ehime
+    if($('#prediction_type').val()!=='ehime'){ link.hide(); return; }
+    var hasData = Object.values(ehime_predictions).some(p=>p.status==='ok');
+    if(hasData){
+        link.show();
+    } else {
+        link.hide();
+    }
+}
+
+// Click handler to trigger CSV build & download
+$(document).on('click','#ehime_dlcsv', function(e){
+    e.preventDefault();
+    var csv = buildEhimeLandingCSV();
+    if(!csv){
+        alert('まだ着地点データがありません。予測完了後に再度お試しください。');
+        return;
+    }
+    var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var ts = moment().utcOffset(9*60).format('YYYYMMDD_HHmm');
+    a.download = 'ehime_landings_'+ts+'.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+});
 
 function tawhiriRequest(settings, extra_settings){
     // Request a prediction via the Tawhiri API.
@@ -346,6 +419,7 @@ function runEhimePredictions(base_settings, extra_settings){
                 updateEhimeSummaryFromStore();
             });
     });
+    updateEhimeCSVLink(); // ensure link hidden until data arrives
 }
 
 function processEhimeResult(data, settings, variant_id, variant_index){
@@ -367,6 +441,7 @@ function processEhimeResult(data, settings, variant_id, variant_index){
     // Plot landing marker for each variant
     plotEhimeLandingMarker(variant_id, variant_index);
     updateEhimeSummaryFromStore();
+    updateEhimeCSVLink();
 }
 
 function plotEhimeLandingMarker(variant_id, variant_index){
@@ -475,6 +550,7 @@ function updateEhimeSummaryFromStore(){
         delete map_items['ehime_burst_circle'];
         ehime_burst_circle = null;
     }
+    updateEhimeCSVLink();
 }
 function processTawhiriResults(data, settings){
     // Process results from a Tawhiri run.

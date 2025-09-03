@@ -210,6 +210,7 @@ function clearMapItems() {
                 $('#ehime_total').text('0');
                 $('#ehime_mean').text('-');
                 $('#ehime_max_dev').text('-');
+                $('#ehime_dlcsv').hide();
             }
         }
     }

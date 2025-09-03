@@ -56,7 +56,7 @@
 <!-- Scenario information -->
 <div id="scenario_info" class="box ui-corner-all">
     <img src="images/drag_handle.png" class="handle" />
-    <h1>シナリオ情報</h1>
+    <h1>INFO</h1>
     <span id="cursor_info">現在のマウス位置: 
         緯度: <span id="cursor_lat">?</span> 
         経度: <span id="cursor_lon">?</span>
@@ -76,7 +76,8 @@
         <span class="ui-corner-all control_buttons">
             <a class="control_button" id="panto">中心へ移動</a> | 
             <a class="control_button" id="dlcsv">CSV</a> | 
-            <a class="control_button" id="dlkml">KML</a>
+            <a class="control_button" id="dlkml">KML</a> |
+            <a class="control_button" id="ehime_dlcsv" style="display:none" href="#" title="愛媛モード 13バリエーション着地点一覧をCSV保存">愛媛用落下位置CSV</a>
         </span>
     </span>
     <br />
@@ -86,7 +87,7 @@
         <a class="control_button" id="about_window_show">このツールについて</a>
     </span>
     <br />
-    <span><b>基本的にはTawahiriを使用させていただいてる立場です。先人たちの功績に敬意を払い、気球実験で活用させていただこうと思います。</b></span>
+    <span><b>本ツールは主に Tawhiri を利用しています。開発・運用に貢献された先人の方々へ敬意を表し、気球実験を成功させましょう！</b></span>
 </div>
 
 <!-- Save location to cookie -->
@@ -347,9 +348,9 @@
         <tr>
             <td>緯度 / 経度:</td>
             <td>
-                <input id="lat" type="text" size="8" name="lat" value="-34.0297" 
+                <input id="lat" type="text" size="8" name="lat" value="33.13492" 
                     onKeyDown="SetSiteOther()">&nbsp;/&nbsp;
-                <input id="lon" type="text" size="8" name="lon" value="138.6917" 
+                <input id="lon" type="text" size="8" name="lon" value="132.50477" 
                     onKeyDown="SetSiteOther()">
             </td>
         </tr>
@@ -371,7 +372,7 @@
             <td>打ち上げ高度 (m):</td>
             <td>
                 <input id="initial_alt" type="text" name="initial_alt" 
-                    value="0">
+                    value="1.4">
             </td>
         </tr>
         <tr>
@@ -455,7 +456,6 @@
                 <b>愛媛気球実験モード</b><br>
                 上昇速度許容範囲: <span id="ehime_ascent_range">-</span><br>
                 下降速度許容範囲: <span id="ehime_descent_range">-</span><br>
-                破裂判定: 気球径判定(球)<br>
                 破裂高度マージン: <span id="ehime_burst_margin">-</span><br>
                 シミュレーション完了: <span id="ehime_completed">0</span>/<span id="ehime_total">0</span><br>
                 着地点平均: <span id="ehime_mean">-</span><br>
