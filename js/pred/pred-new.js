@@ -150,6 +150,9 @@ function runPrediction(){
 $(document).on('change', '#prediction_type', function(){
     if($(this).val()==='ehime'){
         $('#ehime_info_row').show();
+    ensureEhimePanelVisible();
+    expandEhimePanel && expandEhimePanel();
+    refreshEhimePanel();
     // 自動実行を行わず、ユーザーの「予測を実行」ボタン押下を待つ。
     // 以前の結果が残っていると紛らわしいため表示値をリセット。
     $('#ehime_completed').text('0');
@@ -163,6 +166,14 @@ $(document).on('change', '#prediction_type', function(){
     } else {
         $('#ehime_info_row').hide();
     $('#ehime_dlcsv').hide();
+    // 完全に非表示へ（他モード時は占有しない）
+    var panel = $('#ehime_panel');
+    if(panel.length){
+        panel.hide();
+        panel.removeClass('ehime-collapsed');
+        $('#ehime_panel_close').text('折り畳む');
+        $('#ehime_panel_toggle').text('«');
+    }
     }
 });
 
@@ -180,6 +191,134 @@ var ehime_variant_total = 0;
 var ehime_mean_marker = null;
 var ehime_dispersion_circle = null;
 var ehime_burst_circle = null;
+// Ehime panel DOM helper
+function ensureEhimePanelVisible(){
+    if($('#prediction_type').val()==='ehime'){
+        $('#ehime_panel').show();
+    }
+}
+function hideEhimePanel(){
+    // Switch to collapsed state rather than full hide
+    var panel = $('#ehime_panel');
+    if(!panel.length) return;
+    if(!panel.hasClass('ehime-collapsed')){
+        panel.addClass('ehime-collapsed');
+        $('#ehime_panel_close').text('展開');
+        $('#ehime_panel_toggle').text('»');
+        $('#ehime_panel_toggle').show();
+    }
+}
+$(document).on('click','#ehime_panel_close',function(){ hideEhimePanel(); });
+// Toggle button inside panel when collapsed
+$(document).on('click','#ehime_panel_toggle', function(){
+    var panel = $('#ehime_panel');
+    if(panel.hasClass('ehime-collapsed')){
+        panel.removeClass('ehime-collapsed');
+        $('#ehime_panel_close').text('折り畳む');
+        $('#ehime_panel_toggle').text('«');
+    } else {
+        hideEhimePanel();
+    }
+});
+// If user re-selects Ehime mode, ensure expanded
+function expandEhimePanel(){
+    var panel = $('#ehime_panel');
+    panel.show();
+    if(panel.hasClass('ehime-collapsed')){
+        panel.removeClass('ehime-collapsed');
+        $('#ehime_panel_close').text('折り畳む');
+        $('#ehime_panel_toggle').text('«');
+    }
+}
+
+function buildEhimeVariantRow(idx, variant_id, entry, variant_index){
+    var base = ehime_current && ehime_current.base ? ehime_current.base : null;
+    var diff_parts = [];
+    if(base && entry && entry.settings){
+        if(entry.settings.ascent_rate !== base.ascent_rate){ diff_parts.push('A'+(entry.settings.ascent_rate>base.ascent_rate?'+':'-')); }
+        if(entry.settings.descent_rate !== base.descent_rate){ diff_parts.push('D'+(entry.settings.descent_rate>base.descent_rate?'+':'-')); }
+        if(entry.settings.burst_altitude !== base.burst_altitude){
+            var ratio = entry.settings.burst_altitude / base.burst_altitude;
+            diff_parts.push('B'+(ratio>1?'+':'-'));
+        }
+    }
+    if(entry.label==='BASE'){ diff_parts = ['-']; }
+    var color = '#cccccc';
+    if(typeof variant_index !== 'undefined' && ehime_variant_total>0){
+        color = ConvertRGBtoHex(evaluate_cmap((variant_index+1)/(ehime_variant_total+1), 'turbo'));
+    }
+    var statusClass = 'ehime-status-'+entry.status;
+    var lat='-', lon='-', ascent='-', descent='-', burst='-', flight='-';
+    if(entry.results && entry.results.landing){
+        lat = entry.results.landing.latlng.lat.toFixed(4);
+        lon = entry.results.landing.latlng.lng.toFixed(4);
+    }
+    if(entry.settings){
+        if(entry.settings.ascent_rate!=null) ascent = entry.settings.ascent_rate.toFixed(2);
+        if(entry.settings.descent_rate!=null) descent = entry.settings.descent_rate.toFixed(2);
+        if(entry.settings.burst_altitude!=null) burst = entry.settings.burst_altitude.toFixed(0);
+    }
+    if(entry.results && entry.results.launch && entry.results.landing){
+        var dur = (entry.results.landing.datetime.unix() - entry.results.launch.datetime.unix())/60.0;
+        if(!isNaN(dur)) flight = dur.toFixed(0);
+    }
+    var trClass = (entry.label==='BASE')? 'ehime-row-base': '';
+    return '<tr data-vid="'+variant_id+'" class="'+trClass+'">'+
+        '<td>'+(idx+1)+'</td>'+
+        '<td><span class="ehime-color-swatch" style="background:'+color+'"></span></td>'+
+        '<td>'+entry.label+'</td>'+
+        '<td>'+diff_parts.join(' ')+'</td>'+
+        '<td>'+lat+'</td>'+
+        '<td>'+lon+'</td>'+
+        '<td>'+ascent+'</td>'+
+        '<td>'+descent+'</td>'+
+        '<td>'+burst+'</td>'+
+        '<td>'+flight+'</td>'+
+        '<td class="'+statusClass+'">'+entry.status+'</td>'+
+        '</tr>';
+}
+
+function refreshEhimePanel(){
+    if($('#prediction_type').val()!=='ehime') return;
+    ensureEhimePanelVisible();
+    var tbody = [];
+    var keys = Object.keys(ehime_predictions);
+    keys.sort(function(a,b){
+        var ia = parseInt(a.split('_')[1]);
+        var ib = parseInt(b.split('_')[1]);
+        return ia-ib;
+    });
+    keys.forEach(function(k){
+        var entry = ehime_predictions[k];
+        tbody.push(buildEhimeVariantRow(parseInt(k.split('_')[1]), k, entry, parseInt(k.split('_')[1])));
+    });
+    $('#ehime_variants_table tbody').html(tbody.join(''));
+    // Summary
+    var completed = Object.values(ehime_predictions).filter(p=>p.status==='ok');
+    $('#ehime_panel_completed').text(completed.length);
+    $('#ehime_panel_total').text(ehime_variant_total);
+    if(completed.length>0){
+        var sumLat=0,sumLon=0; completed.forEach(p=>{sumLat+=p.results.landing.latlng.lat; sumLon+=p.results.landing.latlng.lng;});
+        var meanLat = (sumLat/completed.length).toFixed(4);
+        var meanLon = (sumLon/completed.length).toFixed(4);
+        $('#ehime_panel_mean').text(meanLat+", "+meanLon);
+        // max dev already computed in updateEhimeSummaryFromStore; reuse element text
+        $('#ehime_panel_maxdev').text($('#ehime_max_dev').text());
+    } else {
+        $('#ehime_panel_mean').text('-');
+        $('#ehime_panel_maxdev').text('-');
+    }
+}
+
+// Row click: pan/zoom to marker & open popup
+$(document).on('click','#ehime_variants_table tbody tr', function(){
+    var vid = $(this).data('vid');
+    if(ehime_predictions[vid] && ehime_predictions[vid].marker){
+        var m = ehime_predictions[vid].marker;
+        map.setView(m.getLatLng(), Math.max(map.getZoom(), 9));
+        if(m.openPopup) m.openPopup();
+    }
+});
 
 // Generate CSV for Ehime variant landing points (called on demand)
 function buildEhimeLandingCSV(){
@@ -449,6 +588,8 @@ function runEhimePredictions(base_settings, extra_settings){
             });
     });
     updateEhimeCSVLink(); // ensure link hidden until data arrives
+    expandEhimePanel();
+    refreshEhimePanel();
 }
 
 function processEhimeResult(data, settings, variant_id, variant_index){
@@ -471,6 +612,8 @@ function processEhimeResult(data, settings, variant_id, variant_index){
     plotEhimeLandingMarker(variant_id, variant_index);
     updateEhimeSummaryFromStore();
     updateEhimeCSVLink();
+    refreshEhimePanel();
+    refreshEhimePanel();
 }
 
 function plotEhimeLandingMarker(variant_id, variant_index){
@@ -518,7 +661,8 @@ function updateEhimeSummaryFromStore(){
     var completed = Object.values(ehime_predictions).filter(p=>p.status==='ok');
     $('#ehime_completed').text(completed.length);
     if(completed.length === 0){
-        return;
+    refreshEhimePanel();
+    return;
     }
     // Mean landing
     var sumLat=0,sumLon=0;
@@ -580,6 +724,7 @@ function updateEhimeSummaryFromStore(){
         ehime_burst_circle = null;
     }
     updateEhimeCSVLink();
+    refreshEhimePanel();
 }
 function processTawhiriResults(data, settings){
     // Process results from a Tawhiri run.

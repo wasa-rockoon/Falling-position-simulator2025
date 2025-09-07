@@ -475,5 +475,39 @@
     </form>
     
     </div>
+<!-- Ehime variants side panel -->
+<div id="ehime_panel" class="box ui-corner-all" style="display:none;">
+    <img src="images/drag_handle.png" class="handle" />
+    <div id="ehime_panel_toggle" title="折り畳む/展開" style="display:none;">«</div>
+    <h1 style="font-size:14px;" class="ehime-collapsible">愛媛バリエーション</h1>
+    <div id="ehime_panel_summary" class="ehime-collapsible" style="font-size:11px;line-height:1.3em;margin-bottom:4px;">
+        完了: <span id="ehime_panel_completed">0</span>/<span id="ehime_panel_total">0</span><br>
+        平均着地点: <span id="ehime_panel_mean">-</span><br>
+        最大偏差: <span id="ehime_panel_maxdev">-</span> km
+    </div>
+    <div id="ehime_variants_wrapper" class="ehime-collapsible">
+        <table id="ehime_variants_table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>色</th>
+                    <th>ラベル</th>
+                    <th>変更</th>
+                    <th>緯度</th>
+                    <th>経度</th>
+                    <th>上昇</th>
+                    <th>下降</th>
+                    <th>破裂</th>
+                    <th>飛行(min)</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div class="ehime-panel-footer ehime-collapsible" style="text-align:right;margin-top:4px;">
+        <a id="ehime_panel_close" style="font-size:11px;">折り畳む</a>
+    </div>
+</div>
 </body>
 </html>

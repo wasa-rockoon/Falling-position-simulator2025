@@ -24,6 +24,7 @@ function initUI() {
             'img.handle', snap: '#map_canvas'});
     $("#burst-calc-wrapper").draggable({containment: '#map_canvas', handle:
             'img.handle', snap: '#map_canvas'}); 
+    $("#ehime_panel").draggable({containment:'#map_canvas', handle:'img.handle', snap:'#map_canvas'});
     
     // Activate buttons to jqueryui styling
     $("#run_pred_btn").button();
