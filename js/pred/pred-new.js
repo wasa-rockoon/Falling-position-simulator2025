@@ -238,8 +238,37 @@ $(document).on('click','#ehime_dlcsv', function(e){
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    var ts = moment().utcOffset(9*60).format('YYYYMMDD_HHmm');
-    a.download = 'ehime_landings_'+ts+'.csv';
+    // Improved, more descriptive filename (例: Ehime_着地点一覧_20250907_1530JST_34.123N_132.456E.csv)
+    // 基本: 予測(基準)の離陸日時(JST)を基準に命名し、可能なら離陸緯度経度(小数3桁)を付与。
+    var baseEntry = null;
+    try { baseEntry = Object.values(ehime_predictions).find(p=>p.label==='BASE' && p.results && p.results.launch && p.results.launch.datetime); } catch(_e) {}
+    var launchMoment = baseEntry ? baseEntry.results.launch.datetime.clone() : moment();
+    // JST に揃える
+    launchMoment.utcOffset(9*60);
+    var ts = launchMoment.format('YYYYMMDD_HHmm');
+    var latlonPart = '';
+    try {
+        if(baseEntry && baseEntry.results.launch && baseEntry.results.launch.latlng){
+            var ll = baseEntry.results.launch.latlng;
+            // 3桁で丸め、N/E を付与 (南/西は想定外だが一応符号処理)
+            var latAbs = Math.abs(ll.lat).toFixed(3);
+            var lonAbs = Math.abs(ll.lng).toFixed(3);
+            var latHem = ll.lat>=0 ? 'N':'S';
+            var lonHem = ll.lng>=0 ? 'E':'W';
+            latlonPart = '_'+latAbs+latHem+'_'+lonAbs+lonHem;
+        }
+    } catch(_e) {}
+    // 上昇/下降速度 (BASE 設定) もファイル名へ含める (_ASCx.xx_DESy.yy)
+    var ascPart = '', descPart = '';
+    try {
+        if(baseEntry && baseEntry.settings){
+            var ascVal = Number(baseEntry.settings.ascent_rate);
+            var descVal = Number(baseEntry.settings.descent_rate);
+            if(!isNaN(ascVal)) ascPart = '_ASC'+ascVal.toFixed(2);
+            if(!isNaN(descVal)) descPart = '_DES'+descVal.toFixed(2);
+        }
+    } catch(_e) {}
+    a.download = 'Ehime_着地点一覧_'+ts+'JST'+ascPart+descPart+latlonPart+'.csv';
     document.body.appendChild(a);
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
