@@ -35,9 +35,7 @@
 ### マップ表示の意味
 * カラフルな小円: 各バリアントの着地点（BASE はやや大きい）
 * BASE の軌跡: 標準条件の飛行経路
-* 青い小円＋薄い円形マーカー: 平均着地点
-* 青の破線円: 全バリアント着地点の最大偏差半径
-* オレンジ破線円: 破裂高度変化 (BURST± / 含 B のラベル) のみを含むサブセットでの最大偏差半径
+* 平均着地点 / 最大偏差: いずれも現在はマップ図形を表示せず、パネル内数値のみ表示 (平均緯度経度, 最大偏差 km)。以前存在した青い平均マーカー・青/オレンジ破線円は削除しました。
 
 ### ポップアップ
 任意の着地点マーカーをクリックすると:
@@ -49,11 +47,18 @@
 BASE のポップアップでは「変更: なし (基準)」と表示されます。
 
 ### 結果の解釈
-* 平均着地点: 統計的中心（単純平均）。
-* 最大偏差: 探索・回収エリアの外接的な目安（安全側に余裕を持たせることを推奨）。
-* オレンジ破線円: 破裂高度の不確かさが着地点に与える影響を個別に把握する指標。
+* 平均着地点: 統計的中心（単純平均）。現状は数値のみ (マップ上マーカー非表示)。
+* 最大偏差: 平均地点から最遠バリアント着地点までの距離 (km)。視覚円は表示せず数値のみ。
+* 破裂高度影響: 破裂高度を含むバリアント (ラベルに B を含む) のばらつきは現在個別円を描かず、必要なら CSV へ出力後オフライン解析してください。
+
+### 陸海判定 (Land / Sea Classification)
+Ehime バリエーション表の最終列は各バリアントの予測着地点が「陸」か「海」かを表示します。
+
+* 判定データ: `data/land_japan_raw.geojson` (日本付近切り出し陸地ポリゴン) による単純 Point-in-Polygon 判定。
+* 表示: 「陸」= 通常色, 「海」= 水色強調, 読み込み中は「判定中」。
+* 制限: ポリゴン外の遠方 (海上含む) は "海" と判定される可能性が高い。微小島嶼など低解像度により陸を海と誤判定することがあります。厳密用途では高解像度海岸線や別ソースで再確認してください。
 
 ### English Summary
-The "Ehime Balloon Experiment" mode runs 13 parameter variants (ascent ±1 m/s, descent ±3 m/s, burst altitude +10% / -20%, and their pairwise combinations) in parallel, plots all landing points, and shows mean landing position plus dispersion circles (overall max deviation and burst-only subset). Popups list parameter deltas relative to the base case.
+The "Ehime Balloon Experiment" mode runs 13 parameter variants (ascent ±1 m/s, descent ±3 m/s, burst altitude +10% / -20%, and pairwise combos) in parallel and plots each landing point (color-coded). The panel lists: completed/total count, mean landing coordinates, and maximum deviation (km). Former visual overlays (mean marker and dispersion / burst dashed circles) were removed; only numeric summaries remain. A Land/Sea column classifies each landing (simple polygon test over a clipped Japan land mask). Popups show parameter deltas vs BASE.
 
 

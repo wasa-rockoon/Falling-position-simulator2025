@@ -191,6 +191,10 @@ var ehime_variant_total = 0;
 var ehime_mean_marker = null;
 var ehime_dispersion_circle = null;
 var ehime_burst_circle = null;
+// (Removed visual summary overlays as per request)
+var ehime_mean_marker = null; // kept for compatibility but unused
+var ehime_dispersion_circle = null; // unused
+var ehime_burst_circle = null; // unused
 // Ehime panel DOM helper
 function ensureEhimePanelVisible(){
     if($('#prediction_type').val()==='ehime'){
@@ -669,69 +673,13 @@ function plotEhimeLandingMarker(variant_id, variant_index){
 function updateEhimeSummaryFromStore(){
     var completed = Object.values(ehime_predictions).filter(p=>p.status==='ok');
     $('#ehime_completed').text(completed.length);
-    if(completed.length === 0){
-    refreshEhimePanel();
-    return;
-    }
-    // Mean landing
-    var sumLat=0,sumLon=0;
-    completed.forEach(p=>{sumLat+=p.results.landing.latlng.lat; sumLon+=p.results.landing.latlng.lng;});
+    if(completed.length === 0){ refreshEhimePanel(); updateEhimeCSVLink(); return; }
+    var sumLat=0,sumLon=0; completed.forEach(p=>{sumLat+=p.results.landing.latlng.lat; sumLon+=p.results.landing.latlng.lng;});
     var meanLat = sumLat / completed.length;
     var meanLon = sumLon / completed.length;
     $('#ehime_mean').text(meanLat.toFixed(4)+', '+meanLon.toFixed(4));
-    // Max deviation
-    var maxDev = 0;
-    completed.forEach(p=>{
-        var d = distHaversine({lat:meanLat,lng:meanLon},{lat:p.results.landing.latlng.lat,lng:p.results.landing.latlng.lng},2);
-        if(d>maxDev) maxDev = d;
-    });
+    var maxDev = 0; completed.forEach(p=>{ var d = distHaversine({lat:meanLat,lng:meanLon},{lat:p.results.landing.latlng.lat,lng:p.results.landing.latlng.lng},2); if(d>maxDev) maxDev = d; });
     $('#ehime_max_dev').text(parseFloat(maxDev).toFixed(2));
-
-    // Draw/update mean marker
-    if(ehime_mean_marker){ try{ ehime_mean_marker.remove(); }catch(e){} }
-    var meanIcon = L.divIcon({className:'ehime-mean-icon', html:'<div style="width:14px;height:14px;border:2px solid #0044cc;border-radius:50%;background:rgba(0,102,255,0.15);"></div>'});
-    ehime_mean_marker = L.marker([meanLat, meanLon], {icon:meanIcon, title:'Ehime 平均着地点'}).addTo(map);
-    map_items['ehime_mean_marker'] = ehime_mean_marker;
-
-    // Draw/update total dispersion circle (max deviation km => m)
-    if(ehime_dispersion_circle){ try{ ehime_dispersion_circle.remove(); }catch(e){} }
-    ehime_dispersion_circle = L.circle([meanLat, meanLon], {
-        radius: parseFloat(maxDev)*1000.0,
-        color:'#1f78b4',
-        weight:1,
-        dashArray:'4,3',
-        fillColor:'#1f78b4',
-        fillOpacity:0.05,
-        interactive:false
-    }).addTo(map);
-    if(ehime_dispersion_circle.bringToBack){ ehime_dispersion_circle.bringToBack(); }
-    map_items['ehime_dispersion_circle'] = ehime_dispersion_circle;
-
-    // Burst-only variation circle (subset variants containing 'B')
-    var burstCompleted = completed.filter(p=> p.label && p.label.indexOf('B')!==-1);
-    if(burstCompleted.length>0){
-        var bMaxDev = 0;
-        burstCompleted.forEach(p=>{
-            var d = distHaversine({lat:meanLat,lng:meanLon},{lat:p.results.landing.latlng.lat,lng:p.results.landing.latlng.lng},2);
-            if(d>bMaxDev) bMaxDev = d;
-        });
-        if(ehime_burst_circle){ try{ ehime_burst_circle.remove(); }catch(e){} }
-        ehime_burst_circle = L.circle([meanLat, meanLon], {
-            radius: parseFloat(bMaxDev)*1000.0,
-            color:'#ff6600',
-            weight:1,
-            dashArray:'2,4',
-            fillColor:'#ff6600',
-            fillOpacity:0.03,
-            interactive:false
-        }).addTo(map);
-        if(ehime_burst_circle.bringToBack){ ehime_burst_circle.bringToBack(); }
-        map_items['ehime_burst_circle'] = ehime_burst_circle;
-    } else if(ehime_burst_circle){
-        try{ ehime_burst_circle.remove(); }catch(e){}
-        delete map_items['ehime_burst_circle'];
-        ehime_burst_circle = null;
-    }
     updateEhimeCSVLink();
     refreshEhimePanel();
 }
