@@ -249,9 +249,17 @@ function buildEhimeVariantRow(idx, variant_id, entry, variant_index){
     }
     var statusClass = 'ehime-status-'+entry.status;
     var lat='-', lon='-', ascent='-', descent='-', burst='-', flight='-';
+        var landsea='-';
     if(entry.results && entry.results.landing){
         lat = entry.results.landing.latlng.lat.toFixed(4);
         lon = entry.results.landing.latlng.lng.toFixed(4);
+            try {
+                var ll = entry.results.landing.latlng;
+                var flag = (typeof LandSea!=='undefined') ? LandSea.isLand(ll.lat, ll.lng) : null;
+                if(flag===null){ landsea='判定中'; }
+                else landsea = flag ? '陸' : '海';
+                entry.landsea = landsea;
+            } catch(e){ landsea='?'; }
     }
     if(entry.settings){
         if(entry.settings.ascent_rate!=null) ascent = entry.settings.ascent_rate.toFixed(2);
@@ -263,19 +271,20 @@ function buildEhimeVariantRow(idx, variant_id, entry, variant_index){
         if(!isNaN(dur)) flight = dur.toFixed(0);
     }
     var trClass = (entry.label==='BASE')? 'ehime-row-base': '';
-    return '<tr data-vid="'+variant_id+'" class="'+trClass+'">'+
-        '<td>'+(idx+1)+'</td>'+
-        '<td><span class="ehime-color-swatch" style="background:'+color+'"></span></td>'+
-        '<td>'+entry.label+'</td>'+
-        '<td>'+diff_parts.join(' ')+'</td>'+
-        '<td>'+lat+'</td>'+
-        '<td>'+lon+'</td>'+
-        '<td>'+ascent+'</td>'+
-        '<td>'+descent+'</td>'+
-        '<td>'+burst+'</td>'+
-        '<td>'+flight+'</td>'+
-        '<td class="'+statusClass+'">'+entry.status+'</td>'+
-        '</tr>';
+    var seaCellClass = statusClass + (landsea==='海' ? ' ehime-landsea-sea' : '');
+    return '<tr data-vid="'+variant_id+'" class="'+trClass+'">'
+        +'<td>'+(idx+1)+'</td>'
+        +'<td><span class="ehime-color-swatch" style="background:'+color+'"></span></td>'
+        +'<td>'+entry.label+'</td>'
+        +'<td>'+diff_parts.join(' ')+'</td>'
+        +'<td>'+lat+'</td>'
+        +'<td>'+lon+'</td>'
+        +'<td>'+ascent+'</td>'
+        +'<td>'+descent+'</td>'
+        +'<td>'+burst+'</td>'
+        +'<td>'+flight+'</td>'
+        +'<td class="'+seaCellClass+'">'+landsea+'</td>'
+        +'</tr>';
 }
 
 function refreshEhimePanel(){

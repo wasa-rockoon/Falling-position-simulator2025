@@ -221,6 +221,8 @@ html, body, #map_canvas {
 .ehime-status-ok { color:#006600; font-weight:bold; }
 .ehime-status-error { color:#cc0000; font-weight:bold; }
 .ehime-row-base { font-weight:bold; }
+/* 陸海判定: 海セル強調 */
+.ehime-landsea-sea { color:#33aaff !important; font-weight:bold; }
 
 #trail_table { 
 	right: 0; bottom: 0;
