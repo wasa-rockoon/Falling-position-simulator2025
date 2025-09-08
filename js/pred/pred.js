@@ -490,25 +490,25 @@ function parseCSV(lines) {
         position: launch_pt,
         map: map,
         icon: launch_icon,
-        title: 'Balloon launch ('+launch_lat+', '+launch_lon+') at ' 
-            + POSIXtoHM(launch_time) + "UTC"
+        title: '離陸地点 ('+launch_lat+', '+launch_lon+') 時刻 ' 
+            + POSIXtoHM(launch_time) + " UTC"
     });
 
     var land_marker = new google.maps.Marker({
         position: land_pt,
         map:map,
         icon: land_icon,
-        title: 'Predicted Landing ('+land_lat+', '+land_lon+') at ' 
-            + POSIXtoHM(land_time) + "UTC"
+        title: '予測着地点 ('+land_lat+', '+land_lon+') 時刻 ' 
+            + POSIXtoHM(land_time) + " UTC"
     });
 
     var pop_marker = new google.maps.Marker({
             position: burst_pt,
             map: map,
             icon: burst_icon,
-            title: 'Balloon burst (' + burst_lat + ', ' + burst_lon 
-                + ' at altitude ' + max_height + 'm) at ' 
-                + POSIXtoHM(burst_time) + "UTC"
+            title: 'バースト (' + burst_lat + ', ' + burst_lon 
+                + ' 高度 ' + max_height + 'm) 時刻 ' 
+                + POSIXtoHM(burst_time) + " UTC"
     });
 
     var path_polyline = new google.maps.Polyline({

@@ -852,7 +852,7 @@ function plotStandardPrediction(prediction, settings){
     var launch_marker = L.marker(
         launch.latlng,
         {
-            title: 'Balloon launch ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+') at ' 
+            title: '離陸地点 ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+') 時刻 ' 
             + launch.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: launch_icon
         }
@@ -876,7 +876,7 @@ function plotStandardPrediction(prediction, settings){
     var land_marker = L.marker(
         landing.latlng,
         {
-            title: 'Predicted Landing ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+') at ' 
+            title: '予測着地点 ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+') 時刻 ' 
             + landing.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: land_icon
         }
@@ -891,8 +891,8 @@ function plotStandardPrediction(prediction, settings){
     var pop_marker = L.marker(
         burst.latlng,
         {
-            title: 'Balloon burst ('+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+ 
-            ' at altitude ' + burst.latlng.alt.toFixed(0) + ') at ' 
+            title: 'バースト ('+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+ 
+            ' 高度 ' + burst.latlng.alt.toFixed(0) + ') 時刻 ' 
             + burst.datetime.clone().utcOffset(9*60).format("HH:mm") + " JST",
             icon: burst_icon
         }
@@ -946,7 +946,7 @@ function writePredictionInfo(settings, metadata, request) {
             //map.setZoom(7);
     });
 
-    var run_time = moment.utc(metadata.complete_datetime).format();
+    var run_time = moment.utc(metadata.complete_datetime).clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm');
     var dataset = moment.utc(request.dataset).format("YYYYMMDD-HH");
 
 
@@ -998,7 +998,7 @@ function plotMultiplePrediction(prediction, current_hour){
         var launch_marker = L.marker(
             launch.latlng,
             {
-                title: 'Balloon launch ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+')',
+                title: '離陸地点 ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+')',
                 icon: launch_icon
             }
         ).addTo(map);
@@ -1015,7 +1015,7 @@ function plotMultiplePrediction(prediction, current_hour){
         stroke: true,
         weight: 1,
         color: "#000000",
-        title: '<b>Launch Time: </b>' + launch.datetime.format() + '<br/>' + 'Predicted Landing ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+')',
+    title: '<b>離陸時刻(JST): </b>' + launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') + '<br/>' + '予測着地点 ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+')',
         current_hour: current_hour // Added in so we can extract this when we get a click event.
     }).addTo(map);
 
@@ -1023,10 +1023,10 @@ function plotMultiplePrediction(prediction, current_hour){
     var _csv_url = _base_url + "&format=csv";
     var _kml_url = _base_url + "&format=kml";
 
-    var predict_description =  '<b>Launch Time: </b>' + launch.datetime.format() + '<br/>' + 
-    '<b>Predicted Landing:</b> '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+ '</br>' +
-    '<b>Landing Time: </b>' + landing.datetime.format() + '<br/>' +
-    '<b>Download: </b> <a href="'+_kml_url+'" target="_blank">KML</a>  <a href="'+_csv_url+'" target="_blank">CSV</a></br>';
+    var predict_description =  '<b>離陸時刻(JST): </b>' + launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') + '<br/>' + 
+    '<b>予測着地点:</b> '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+ '</br>' +
+    '<b>着地時刻(JST): </b>' + landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') + '<br/>' +
+    '<b>ダウンロード: </b> <a href="'+_kml_url+'" target="_blank">KML</a>  <a href="'+_csv_url+'" target="_blank">CSV</a></br>';
 
     var landing_popup = new L.popup(
         { autoClose: false, 
@@ -1172,7 +1172,7 @@ function writeHourlyPredictionInfo(settings, metadata, request) {
     //         //map.setZoom(7);
     // });
 
-    var run_time = moment.utc(metadata.complete_datetime).format();
+    var run_time = moment.utc(metadata.complete_datetime).clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm');
     var dataset = moment.utc(request.dataset).format("YYYYMMDD-HH");
 
 
