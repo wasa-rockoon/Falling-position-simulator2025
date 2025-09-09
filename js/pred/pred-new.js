@@ -153,6 +153,10 @@ $(document).on('change', '#prediction_type', function(){
     ensureEhimePanelVisible();
     expandEhimePanel && expandEhimePanel();
     refreshEhimePanel();
+    // Show mobile nav button if mobile UI loaded
+    var ehBtn = document.getElementById('mobile_nav_ehime');
+    if(ehBtn){ ehBtn.style.display='block'; }
+    if(window.__mobileUI){ window.__mobileUI.showEhimePanel && window.__mobileUI.showEhimePanel(); }
     // 自動実行を行わず、ユーザーの「予測を実行」ボタン押下を待つ。
     // 以前の結果が残っていると紛らわしいため表示値をリセット。
     $('#ehime_completed').text('0');
@@ -321,6 +325,78 @@ function refreshEhimePanel(){
         $('#ehime_panel_mean').text('-');
         $('#ehime_panel_maxdev').text('-');
     }
+        // Build mobile card list
+        var mobileWrap = document.getElementById('ehime_variants_mobile');
+        if(mobileWrap){
+            var isMobileCards = window.matchMedia && matchMedia('(max-width:600px)').matches;
+            if(isMobileCards){
+                var cards = [];
+                keys.forEach(function(k){
+                    var entry = ehime_predictions[k];
+                    var idx = parseInt(k.split('_')[1]);
+                    var color = '#ccc';
+                    if(ehime_variant_total>0){
+                        color = ConvertRGBtoHex(evaluate_cmap((idx+1)/(ehime_variant_total+1), 'turbo'));
+                    }
+                    var baseClass = entry.label==='BASE' ? ' base':' ';
+                    var statusClass = ' '+(entry.status==='pending'?'pending':(entry.status==='error'?'error':'ok'));
+                    var lat='-', lon='-', landsea='-';
+                    var flight='-', ascent='-', descent='-', burst='-';
+                    if(entry.results && entry.results.landing){
+                        lat = entry.results.landing.latlng.lat.toFixed(4);
+                        lon = entry.results.landing.latlng.lng.toFixed(4);
+                    }
+                    if(entry.landsea){ landsea = entry.landsea; }
+                    if(entry.settings){
+                        if(entry.settings.ascent_rate!=null) ascent = entry.settings.ascent_rate.toFixed(2);
+                        if(entry.settings.descent_rate!=null) descent = entry.settings.descent_rate.toFixed(2);
+                        if(entry.settings.burst_altitude!=null) burst = entry.settings.burst_altitude.toFixed(0);
+                    }
+                    if(entry.results && entry.results.launch && entry.results.landing){
+                        var dur = (entry.results.landing.datetime.unix() - entry.results.launch.datetime.unix())/60.0;
+                        if(!isNaN(dur)) flight = dur.toFixed(0);
+                    }
+                    // Diff markers
+                    var diff=[];
+                    if(ehime_current && ehime_current.base){
+                        var base=ehime_current.base;
+                        if(entry.settings){
+                            if(entry.settings.ascent_rate !== base.ascent_rate) diff.push('A'+(entry.settings.ascent_rate>base.ascent_rate?'+':'-'));
+                            if(entry.settings.descent_rate !== base.descent_rate) diff.push('D'+(entry.settings.descent_rate>base.descent_rate?'+':'-'));
+                            if(entry.settings.burst_altitude !== base.burst_altitude){
+                                var ratio = entry.settings.burst_altitude/base.burst_altitude; diff.push('B'+(ratio>1?'+':'-'));
+                            }
+                        }
+                    }
+                    if(entry.label==='BASE'){ diff=['-']; }
+                    var landseaClass = landsea==='海' ? ' landsea-sea':'';
+                    var html = '<div class="ehime-card'+baseClass+statusClass+'" data-vid="'+k+'">'
+                        +'<div><span class="swatch" style="background:'+color+'"></span><span class="label">'+entry.label+'</span> <span style="font-size:10px;">['+diff.join(' ')+']</span></div>'
+                        +'<div class="meta">'
+                        +'<span>上昇:'+ascent+'</span>'
+                        +'<span>下降:'+descent+'</span>'
+                        +'<span>破裂:'+burst+'</span>'
+                        +'<span>飛行:'+flight+'m</span>'
+                        +'<span>着地:'+lat+','+lon+'</span>'
+                        +'<span class="'+landseaClass+'">'+landsea+'</span>'
+                        +'</div>'
+                        +'</div>';
+                    cards.push(html);
+                });
+                mobileWrap.innerHTML = cards.join('');
+                // Click: pan to marker
+                mobileWrap.querySelectorAll('.ehime-card').forEach(function(card){
+                    card.addEventListener('click', function(){
+                        var vid = this.getAttribute('data-vid');
+                        if(ehime_predictions[vid] && ehime_predictions[vid].marker){
+                            var m = ehime_predictions[vid].marker;
+                            map.setView(m.getLatLng(), Math.max(map.getZoom(), 9));
+                            if(m.openPopup) m.openPopup();
+                        }
+                    });
+                });
+            }
+        }
 }
 
 // Row click: pan/zoom to marker & open popup
