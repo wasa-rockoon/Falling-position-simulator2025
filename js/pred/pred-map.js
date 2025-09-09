@@ -197,8 +197,21 @@ function clearMapItems() {
     if(typeof ehime_predictions !== 'undefined' && ehime_predictions){
         for (var k in ehime_predictions){
             var ep = ehime_predictions[k];
-            if(ep && ep.marker){
-                try { ep.marker.remove(); } catch(e) {}
+            if(ep){
+                // メイン着地マーカー
+                if(ep.marker){ try { ep.marker.remove(); } catch(e) {} }
+                // 経路/発射/破裂など一時レイヤ (toggleEhimeVariantPath で生成)
+                if(ep.layers){
+                    try {
+                        if(ep.layers.flight_path && ep.layers.flight_path.remove) ep.layers.flight_path.remove();
+                        if(ep.layers.launch_marker && ep.layers.launch_marker.remove) ep.layers.launch_marker.remove();
+                        if(ep.layers.burst_marker && ep.layers.burst_marker.remove) ep.layers.burst_marker.remove();
+                    } catch(_e){}
+                    // 参照クリア
+                    delete ep.layers.flight_path;
+                    delete ep.layers.launch_marker;
+                    delete ep.layers.burst_marker;
+                }
             }
         }
         if(typeof ehime_variant_total !== 'undefined'){

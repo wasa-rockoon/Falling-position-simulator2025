@@ -803,6 +803,97 @@ function plotEhimeLandingMarker(variant_id, variant_index){
         '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST';
     marker.bindPopup(popup_html);
     ehime_predictions[variant_id].marker = marker;
+
+    // 表示制御ポリシー調整 (要件):
+    //  - 毎時タイプ (hourly) と同様にクリックで経路表示/非表示をトグル
+    //  - ダブルクリックでは「ポップアップは残し、飛行経路のみ消去」
+    //  - BASE バリアントは既存挙動を保持 (変更禁止)
+    if(entry.label === 'BASE'){
+        marker.on('click', function(){ toggleEhimeVariantPath(variant_id); });
+    } else {
+        attachEhimeVariantClickHandlers(marker, variant_id);
+    }
+}
+
+// 愛媛モード: バリアント飛行経路の表示/非表示トグル
+function toggleEhimeVariantPath(variant_id){
+    var entry = ehime_predictions[variant_id];
+    if(!entry || entry.status!=='ok' || !entry.results) return;
+
+    // BASE バリアントは最初に標準描画済みなので未登録なら既存グローバルを紐付け
+    if(entry.label==='BASE' && (!entry.layers || !entry.layers.flight_path)){
+        entry.layers = entry.layers || {};
+        if(map_items['path_polyline']) entry.layers.flight_path = map_items['path_polyline'];
+        if(map_items['launch_marker']) entry.layers.launch_marker = map_items['launch_marker'];
+        if(map_items['pop_marker']) entry.layers.burst_marker = map_items['pop_marker'];
+    }
+
+    // 既に表示中 -> 削除
+    if(entry.layers && entry.layers.flight_path){
+        if(entry.layers.flight_path.remove) entry.layers.flight_path.remove();
+        if(entry.layers.launch_marker && entry.layers.launch_marker.remove) entry.layers.launch_marker.remove();
+        if(entry.layers.burst_marker && entry.layers.burst_marker.remove) entry.layers.burst_marker.remove();
+        delete entry.layers.flight_path;
+        delete entry.layers.launch_marker;
+        delete entry.layers.burst_marker;
+        return;
+    }
+
+    // 新規表示
+    entry.layers = entry.layers || {};
+    var res = entry.results;
+    // アイコンは単一予測と同じ
+    var launch_icon = L.icon({ iconUrl: launch_img, iconSize:[10,10], iconAnchor:[5,5] });
+    var burst_icon  = L.icon({ iconUrl: burst_img,  iconSize:[16,16], iconAnchor:[8,8] });
+    // 発射マーカー
+    var launch_marker = L.marker(res.launch.latlng, {
+        title: '離陸地点 ('+res.launch.latlng.lat.toFixed(4)+', '+res.launch.latlng.lng.toFixed(4)+')',
+        icon: launch_icon
+    }).addTo(map);
+    // 破裂マーカー
+    var burst_marker = L.marker(res.burst.latlng, {
+        title: 'バースト ('+res.burst.latlng.lat.toFixed(4)+', '+res.burst.latlng.lng.toFixed(4)+' 高度 '+res.burst.latlng.alt.toFixed(0)+')',
+        icon: burst_icon
+    }).addTo(map);
+    // 経路ポリライン（黒、標準と同じスタイル）
+    var path_polyline = L.polyline(res.flight_path, { weight:3, color:'#000000' }).addTo(map);
+    entry.layers.flight_path = path_polyline;
+    entry.layers.launch_marker = launch_marker;
+    entry.layers.burst_marker = burst_marker;
+}
+
+// Ehime 非BASEバリアント: シングルクリック=トグル, ダブルクリック=経路削除+ポップアップ維持
+function attachEhimeVariantClickHandlers(marker, variant_id){
+    var clickTimer = null;
+    var SINGLE_DELAY = 250; // ダブルクリック判定待ち (ms)
+
+    marker.on('click', function(e){
+        // detail>1 (ブラウザが連続クリック回数提供) の場合はダブルクリックハンドラに任せる
+        if(e.originalEvent && e.originalEvent.detail > 1){ return; }
+        if(clickTimer){ clearTimeout(clickTimer); }
+        clickTimer = setTimeout(function(){
+            toggleEhimeVariantPath(variant_id);
+            clickTimer = null;
+        }, SINGLE_DELAY);
+    });
+
+    marker.on('dblclick', function(e){
+        if(clickTimer){ clearTimeout(clickTimer); clickTimer = null; }
+        var entry = ehime_predictions[variant_id];
+        if(entry && entry.layers && entry.layers.flight_path){
+            try { if(entry.layers.flight_path.remove) entry.layers.flight_path.remove(); } catch(_e){}
+            try { if(entry.layers.launch_marker && entry.layers.launch_marker.remove) entry.layers.launch_marker.remove(); } catch(_e){}
+            try { if(entry.layers.burst_marker && entry.layers.burst_marker.remove) entry.layers.burst_marker.remove(); } catch(_e){}
+            delete entry.layers.flight_path;
+            delete entry.layers.launch_marker;
+            delete entry.layers.burst_marker;
+        }
+        // ポップアップを開いたままにする (未開なら開く)
+        try { marker.openPopup(); } catch(_e){}
+        // 地図のデフォルトダブルクリックズームを抑制 (Leaflet doubleClickZoom オプション有効時)
+        if(e.originalEvent && e.originalEvent.preventDefault){ e.originalEvent.preventDefault(); }
+        L.DomEvent.stopPropagation(e);
+    });
 }
 
 function updateEhimeSummaryFromStore(){
@@ -836,12 +927,17 @@ function processTawhiriResults(data, settings, fall_only){
                     var first = descentPath[0];
                     var _lonf=first.longitude; if(_lonf>180)_lonf=_lonf-360.0;
                     var altOffset = first.altitude - userStartAlt; // 減算で開始高度を合わせる
-                    var fp=[]; descentPath.forEach(function(item){
+                    var fp=[]; // ポリライン用 (lat,lon,alt)
+                    var fp_time=[]; // CSV 用 (lat,lon,alt,datetimeUTC)
+                    descentPath.forEach(function(item){
                         var _lat=item.latitude; var _lon=item.longitude; if(_lon>180)_lon=_lon-360.0;
                         var adjAlt = item.altitude - altOffset; if(adjAlt < 0) adjAlt = 0;
                         fp.push([_lat,_lon,adjAlt]);
+                        // 各ポイント UTC 時刻を保持 (moment 形式)
+                        fp_time.push({lat:_lat, lon:_lon, alt:adjAlt, datetime: moment.utc(item.datetime)});
                     });
                     prediction_results.flight_path = fp;
+                    prediction_results.flight_path_time = fp_time; // 追加: 時刻付き配列 (落下のみ CSV 用)
                     // launch 再構成 (開始高度=ユーザー指定)
                     prediction_results.launch = {latlng:L.latLng([first.latitude,_lonf,userStartAlt]), datetime: moment.utc(first.datetime)};
                     // burst は落下専用のダミー (開始点と同じ)
@@ -974,10 +1070,13 @@ function parsePrediction(prediction){
 
 function plotStandardPrediction(prediction, settings){
     appendDebug("Flight data parsed, creating map plot...");
-    // Avoid clearing existing Ehime variant markers when base path draws.
-    var ehimeActive = (typeof ehime_predictions !== 'undefined') && (Object.keys(ehime_predictions).length>0);
-    if(!ehimeActive){
+    // 単一タイプ描画時: 既存 Ehime バリアント表示を完全クリア (残存経路対策)
+    // settings.pred_type が 'ehime' でない場合、Ehime 由来レイヤを除去
+    if(settings && settings.pred_type !== 'ehime'){
         clearMapItems();
+    } else {
+        // Ehime BASE の再描画時は既存バリアントマーカーを残す
+        // （BASE 経路だけ再生成したいケースを想定）
     }
 
     var launch = prediction.launch;
@@ -1144,11 +1243,34 @@ function writePredictionInfo(settings, metadata, request, fall_results) {
     // Create the API URLs based on the current prediction settings
     if(fall_results){
         // クライアント側 CSV/KML (簡易) を生成: 下降のみ
-        var csvLines=['lat,lon,alt(m),datetime_UTC'];
-        fall_results.flight_path.forEach(function(p){ csvLines.push(p[0].toFixed(6)+','+p[1].toFixed(6)+','+p[2].toFixed(1)+','+''); });
+        // flight_path_time が存在する場合はそこから UTC 時刻を出力
+        var header = 'lat,lon,alt_m,datetime_UTC';
+        var csvLines=[header];
+        if(Array.isArray(fall_results.flight_path_time)){
+            fall_results.flight_path_time.forEach(function(pt){
+                var dt = pt.datetime ? pt.datetime.clone().utc().format('YYYY-MM-DD HH:mm:ss') : '';
+                csvLines.push(pt.lat.toFixed(6)+','+pt.lon.toFixed(6)+','+pt.alt.toFixed(1)+','+dt);
+            });
+        } else {
+            // 後方互換: 時刻情報が無い場合は空欄
+            fall_results.flight_path.forEach(function(p){ csvLines.push(p[0].toFixed(6)+','+p[1].toFixed(6)+','+p[2].toFixed(1)+','); });
+        }
         var csvBlob=new Blob([csvLines.join('\n')],{type:'text/csv'});
         var csvUrl=URL.createObjectURL(csvBlob);
-        $("#dlcsv").attr("href", csvUrl).attr('download','fall_only.csv');
+        // 命名規則: FallOnly_YYYYMMDD_HHmmJST_<LAT><N/S>_<LON><E/W>_ALT<startAlt>m.csv
+        try {
+            var launchJst = fall_results.launch && fall_results.launch.datetime ? fall_results.launch.datetime.clone().utcOffset(9*60) : moment();
+            var tsJst = launchJst.format('YYYYMMDD_HHmm');
+            var lat = fall_results.launch && fall_results.launch.latlng ? fall_results.launch.latlng.lat : 0;
+            var lon = fall_results.launch && fall_results.launch.latlng ? fall_results.launch.latlng.lng : 0;
+            var latPart = Math.abs(lat).toFixed(3)+(lat>=0?'N':'S');
+            var lonPart = Math.abs(lon).toFixed(3)+(lon>=0?'E':'W');
+            var startAlt = fall_results.launch && fall_results.launch.latlng && fall_results.launch.latlng.alt!=null ? Math.round(fall_results.launch.latlng.alt) : 0;
+            var fname = 'FallOnly_'+tsJst+'JST_'+latPart+'_'+lonPart+'_ALT'+startAlt+'m.csv';
+            $('#dlcsv').attr('href', csvUrl).attr('download', fname);
+        } catch(_e){
+            $('#dlcsv').attr('href', csvUrl).attr('download', 'FallOnly.csv');
+        }
         // 簡易 KML
         var kmlPts=fall_results.flight_path.map(function(p){return p[1]+','+p[0]+','+p[2];}).join(' ');
         var kml='<?xml version="1.0" encoding="UTF-8"?>\n'+
