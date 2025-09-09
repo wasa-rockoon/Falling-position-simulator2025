@@ -44,6 +44,7 @@ function runPrediction(){
     run_settings.profile = $('#flight_profile').val();
     run_settings.pred_type = $('#prediction_type').val();
     var ehime_mode = (run_settings.pred_type === 'ehime');
+    var fall_mode = (run_settings.pred_type === 'fall');
     
     // Grab date values
     var year = $('#year').val();
@@ -85,6 +86,25 @@ function runPrediction(){
     } else {
         run_settings.float_altitude = parseFloat($('#burst').val());
         run_settings.stop_datetime = launch_time.add(1, 'days').format();
+    }
+
+    // FALL モード: 入力は開始高度(= burst) と下降速度のみ。API に対し極端な高速上昇 + 直後バースト設定を与える。
+    if(fall_mode){
+        // ユーザー入力の開始高度
+        var start_alt = parseFloat($('#initial_alt').val());
+        var descent_rate = parseFloat($('#drag').val());
+        if(isNaN(start_alt) || isNaN(descent_rate)){
+            throwError('落下モード: 高度/下降速度が不正');
+            return;
+        }
+    // 最小オーバーヘッド: 1m だけ上昇 (API 仕様的に 0 差より安定)
+    var ASCENT_BUFFER = 1; // m
+        run_settings.fall_user_start_alt = start_alt; // 後段再調整用に保存
+        run_settings.launch_altitude = start_alt;              // 実際の開始高度
+    run_settings.burst_altitude = start_alt + ASCENT_BUFFER; // 1m 上昇後すぐ下降
+    run_settings.ascent_rate = 1; // 1m / 1 m/s = 約1秒相当
+        run_settings.descent_rate = descent_rate;
+        run_settings.profile = 'standard_profile'; // 強制
     }
 
     // 愛媛モード: 表示上の許容範囲やマージン情報を計算（API送信値はそのまま）
@@ -179,6 +199,8 @@ $(document).on('change', '#prediction_type', function(){
         $('#ehime_panel_toggle').text('«');
     }
     }
+    // 落下モード UI 切替
+    updateFallModeUI();
 });
 
 // Tawhiri API URL. Refer to API docs here: https://tawhiri.readthedocs.io/en/latest/api.html
@@ -238,6 +260,29 @@ function expandEhimePanel(){
         $('#ehime_panel_toggle').text('«');
     }
 }
+
+// 落下モード UI 制御: 参照しない入力を無効化・視覚的無効化
+function updateFallModeUI(){
+    var fall = ($('#prediction_type').val()==='fall');
+    var disableIds = ['#ascent','#burst','#flight_profile'];
+    if(fall){
+        // 強制プロファイル
+        $('#flight_profile').val('standard_profile');
+        disableIds.forEach(function(id){ $(id).prop('disabled',true).addClass('fall-disabled'); });
+        $('#burst-calc-show').hide();
+        var cell = $('#initial_alt').closest('tr').find('td:first');
+        if(!cell.data('orig')){ cell.data('orig', cell.text()); }
+        if(cell.text().indexOf('落下開始高度')===-1){ cell.text(cell.data('orig')+' (落下開始高度)'); }
+    } else {
+        disableIds.forEach(function(id){ $(id).prop('disabled',false).removeClass('fall-disabled'); });
+        $('#burst-calc-show').show();
+        var cell = $('#initial_alt').closest('tr').find('td:first');
+        if(cell.data('orig')){ cell.text(cell.data('orig')); }
+    }
+}
+
+// 初期呼び出し (DOM ready タイミングで pred.js などから呼ばれない場合対策)
+$(function(){ updateFallModeUI(); });
 
 function buildEhimeVariantRow(idx, variant_id, entry, variant_index){
     var base = ehime_current && ehime_current.base ? ehime_current.base : null;
@@ -525,6 +570,20 @@ function tawhiriRequest(settings, extra_settings){
                 //throwError("test.");
                 //console.log(data);
             });
+    } else if (settings.pred_type=='fall') {
+        // シングルだが後処理で下降部分のみ抽出
+        hourly_mode = false;
+        $.get( tawhiri_api, settings )
+            .done(function(data){
+                processTawhiriResults(data, settings, true); // fall flag
+            })
+            .fail(function(data){
+                var prediction_error = '落下モード予測失敗。再試行してください。';
+                if(data.hasOwnProperty('responseJSON')){
+                    prediction_error += data.responseJSON.error.description;
+                }
+                throwError(prediction_error);
+            });
     } else if (settings.pred_type=='ehime') {
         // Custom multi-variant prediction set for Ehime mode
         if(settings.profile != 'standard_profile'){
@@ -759,7 +818,7 @@ function updateEhimeSummaryFromStore(){
     updateEhimeCSVLink();
     refreshEhimePanel();
 }
-function processTawhiriResults(data, settings){
+function processTawhiriResults(data, settings, fall_only){
     // Process results from a Tawhiri run.
 
     if(data.hasOwnProperty('error')){
@@ -768,6 +827,33 @@ function processTawhiriResults(data, settings){
     } else {
 
         var prediction_results = parsePrediction(data.prediction);
+        if(fall_only){
+            // 上昇区間を除去し、ユーザー指定開始高度へアルティチュードを平行移動
+            try {
+                var userStartAlt = settings.fall_user_start_alt;
+                var descentPath = data.prediction[1].trajectory || [];
+                if(descentPath.length>0){
+                    var first = descentPath[0];
+                    var _lonf=first.longitude; if(_lonf>180)_lonf=_lonf-360.0;
+                    var altOffset = first.altitude - userStartAlt; // 減算で開始高度を合わせる
+                    var fp=[]; descentPath.forEach(function(item){
+                        var _lat=item.latitude; var _lon=item.longitude; if(_lon>180)_lon=_lon-360.0;
+                        var adjAlt = item.altitude - altOffset; if(adjAlt < 0) adjAlt = 0;
+                        fp.push([_lat,_lon,adjAlt]);
+                    });
+                    prediction_results.flight_path = fp;
+                    // launch 再構成 (開始高度=ユーザー指定)
+                    prediction_results.launch = {latlng:L.latLng([first.latitude,_lonf,userStartAlt]), datetime: moment.utc(first.datetime)};
+                    // burst は落下専用のダミー (開始点と同じ)
+                    prediction_results.burst = prediction_results.launch;
+                    // landing altitude もオフセット適用 (地表近似なので 0 に留める)
+                    var landingLL = prediction_results.landing.latlng;
+                    prediction_results.landing.latlng = L.latLng([landingLL.lat, landingLL.lng, Math.max(0, landingLL.alt - altOffset)]);
+                    prediction_results.flight_time = prediction_results.landing.datetime.diff(prediction_results.launch.datetime,'seconds');
+                    prediction_results.profile = 'fall_only';
+                }
+            } catch(e){ appendDebug('落下モード変換失敗: '+e); }
+        }
 
         var extended_results = prediction_results;
         // If Ehime mode, apply burst-altitude margin stats (display only)
@@ -777,12 +863,16 @@ function processTawhiriResults(data, settings){
             // For simplicity, treat ascent/descent variance as instantaneous speed bands and not re-simulate.
             // Record for UI summary after plotting.
         }
-    plotStandardPrediction(extended_results, settings);
+    if(fall_only){
+        plotFallOnlyPrediction(extended_results, settings);
+    } else {
+        plotStandardPrediction(extended_results, settings);
+    }
         if(settings.pred_type === 'ehime'){
             updateEhimeSummary([extended_results]);
         }
 
-        writePredictionInfo(settings, data.metadata, data.request);
+        writePredictionInfo(settings, data.metadata, data.request, fall_only ? extended_results : null);
         
     }
 
@@ -1003,20 +1093,76 @@ function plotStandardPrediction(prediction, settings){
     return true;
 }
 
+// 落下のみモード描画
+function plotFallOnlyPrediction(prediction, settings){
+    appendDebug('落下のみモード: 下降経路を描画');
+    clearMapItems();
+    var launch = prediction.launch; // 開始点 (元バースト位置)
+    var landing = prediction.landing;
+    var range = distHaversine(launch.latlng, landing.latlng, 1);
+    var flighttime = '';
+    var f_hours = Math.floor(prediction.flight_time / 3600);
+    var f_minutes = Math.floor(((prediction.flight_time % 86400) % 3600) / 60);
+    if ( f_minutes < 10 ) f_minutes = '0'+f_minutes;
+    flighttime = f_hours + 'hr' + f_minutes;
+    $("#cursor_pred_range").html(range);
+    $("#cursor_pred_time").html(flighttime);
+    cursorPredShow();
+
+    var launch_icon = L.icon({ iconUrl: launch_img, iconSize:[10,10], iconAnchor:[5,5]});
+    var land_icon   = L.icon({ iconUrl: land_img,   iconSize:[10,10], iconAnchor:[5,5]});
+
+    var launch_marker = L.marker(launch.latlng, {title:'落下開始 ('+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+') 高度 '+launch.latlng.alt.toFixed(0)+'m JST '+launch.datetime.clone().utcOffset(9*60).format('HH:mm'), icon:launch_icon}).addTo(map);
+    var land_marker = L.marker(landing.latlng, {title:'着地点 ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+') JST '+landing.datetime.clone().utcOffset(9*60).format('HH:mm'), icon:land_icon}).addTo(map);
+
+    var launch_popup = '<b>落下開始</b><br/>'+
+        '位置: '+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+'<br/>'+
+        '<b>開始高度:</b> '+launch.latlng.alt.toFixed(0)+' m<br/>'+
+        '<b>開始時刻:</b> '+launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST<br/>'+
+        '<b>下降速度:</b> '+ (settings.descent_rate!=null?settings.descent_rate:'?') +' m/s';
+    launch_marker.bindPopup(launch_popup);
+    var land_popup = '<b>着地点</b><br/>'+
+        '緯度経度: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        '<b>着地高度:</b> '+landing.latlng.alt.toFixed(0)+' m<br/>'+
+        '<b>下降時間:</b> '+flighttime+'<br/>'+
+        '<b>着地時刻:</b> '+landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
+    land_marker.bindPopup(land_popup);
+
+    var path_polyline = L.polyline(prediction.flight_path, {weight:3, color:'#4444aa', dashArray:'4,4'}).addTo(map);
+    map_items['launch_marker'] = launch_marker;
+    map_items['land_marker'] = land_marker;
+    map_items['path_polyline'] = path_polyline;
+    map.setView(launch.latlng, 8);
+}
+
 
 // Populate and enable the download CSV, KML and Pan To links, and write the 
 // time the prediction was run and the model used to the Scenario Info window
-function writePredictionInfo(settings, metadata, request) {
+function writePredictionInfo(settings, metadata, request, fall_results) {
     // populate the download links
 
     // Create the API URLs based on the current prediction settings
-    _base_url = tawhiri_api + "?" + $.param(settings) 
-    _csv_url = _base_url + "&format=csv";
-    _kml_url = _base_url + "&format=kml";
-
-
-    $("#dlcsv").attr("href", _csv_url);
-    $("#dlkml").attr("href", _kml_url);
+    if(fall_results){
+        // クライアント側 CSV/KML (簡易) を生成: 下降のみ
+        var csvLines=['lat,lon,alt(m),datetime_UTC'];
+        fall_results.flight_path.forEach(function(p){ csvLines.push(p[0].toFixed(6)+','+p[1].toFixed(6)+','+p[2].toFixed(1)+','+''); });
+        var csvBlob=new Blob([csvLines.join('\n')],{type:'text/csv'});
+        var csvUrl=URL.createObjectURL(csvBlob);
+        $("#dlcsv").attr("href", csvUrl).attr('download','fall_only.csv');
+        // 簡易 KML
+        var kmlPts=fall_results.flight_path.map(function(p){return p[1]+','+p[0]+','+p[2];}).join(' ');
+        var kml='<?xml version="1.0" encoding="UTF-8"?>\n'+
+            '<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>Fall Only Descent</name><LineString><coordinates>'+kmlPts+'</coordinates></LineString></Placemark></Document></kml>';
+        var kmlBlob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
+        var kmlUrl=URL.createObjectURL(kmlBlob);
+        $("#dlkml").attr("href", kmlUrl).attr('download','fall_only.kml');
+    } else {
+        _base_url = tawhiri_api + "?" + $.param(settings) 
+        _csv_url = _base_url + "&format=csv";
+        _kml_url = _base_url + "&format=kml";
+        $("#dlcsv").attr("href", _csv_url).removeAttr('download');
+        $("#dlkml").attr("href", _kml_url).removeAttr('download');
+    }
     $("#panto").click(function() {
             map.panTo(map_items['launch_marker'].getLatLng());
             //map.setZoom(7);
