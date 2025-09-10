@@ -9,6 +9,10 @@
  */
 
  var map = null;
+// URL から座標が指定された場合に、sites.json 内の既知サイトとマッチすればそのサイト名を設定し、
+// マッチしなければ Other を選択するための記憶用変数。
+var urlLatFromParams = null;
+var urlLonFromParams = null;
 
 // This function runs when the document object model is fully populated
 // and the page is loaded
@@ -54,10 +58,12 @@ function readURLParams() {
     var params_provided = false;
 
     if(url.searchParams.has('launch_latitude')){
-        $("#lat").val(url.searchParams.get('launch_latitude'));
+        var _ulat = parseFloat(url.searchParams.get('launch_latitude'));
+        if(!isNaN(_ulat)) { urlLatFromParams = _ulat; $("#lat").val(_ulat); }
     }
     if(url.searchParams.has('launch_longitude')){
-        $("#lon").val(url.searchParams.get('launch_longitude'));
+        var _ulon = parseFloat(url.searchParams.get('launch_longitude'));
+        if(!isNaN(_ulon)) { urlLonFromParams = _ulon; $("#lon").val(_ulon); }
     }
     if(url.searchParams.has('launch_altitude')){
         $("#initial_alt").val(url.searchParams.get('launch_altitude'));
@@ -203,6 +209,27 @@ function populateLaunchSite() {
             $("<option>").attr("value", sitename).text(sitename).appendTo("#site");
         });
         $("<option>").attr("value", "Other").text("Other").appendTo("#site");
+
+        // URL で座標指定があればマッチング試行
+        if(urlLatFromParams !== null && urlLonFromParams !== null){
+            var matched = false;
+            // 許容誤差 (約 1e-4 度 ≒ 11m)
+            var tol = 1e-4;
+            $.each(sites, function(sitename, site){
+                if(Math.abs(site.latitude - urlLatFromParams) < tol && Math.abs(site.longitude - urlLonFromParams) < tol){
+                    $("#site").val(sitename);
+                    // URL に高度が無ければサイト高度を反映
+                    if(!url.searchParams.has('launch_altitude')){
+                        $("#initial_alt").val(site.altitude);
+                    }
+                    matched = true;
+                    return false; // break
+                }
+            });
+            if(!matched){
+                SetSiteOther();
+            }
+        }
         return true;
     });
     return true;
