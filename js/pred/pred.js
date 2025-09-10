@@ -517,25 +517,21 @@ function parseCSV(lines) {
         position: launch_pt,
         map: map,
         icon: launch_icon,
-        title: '離陸地点 ('+launch_lat+', '+launch_lon+') 時刻 ' 
-            + POSIXtoHM(launch_time) + " UTC"
+    title: (typeof formatCoordPair === 'function' ? '離陸地点 ' + formatCoordPair(parseFloat(launch_lat), parseFloat(launch_lon)) : '離陸地点 ('+launch_lat+', '+launch_lon+')') + ' 時刻 ' + POSIXtoHM(launch_time) + ' UTC'
     });
 
     var land_marker = new google.maps.Marker({
         position: land_pt,
         map:map,
         icon: land_icon,
-        title: '予測着地点 ('+land_lat+', '+land_lon+') 時刻 ' 
-            + POSIXtoHM(land_time) + " UTC"
+    title: (typeof formatCoordPair === 'function' ? '予測着地点 ' + formatCoordPair(parseFloat(land_lat), parseFloat(land_lon)) : '予測着地点 ('+land_lat+', '+land_lon+')') + ' 時刻 ' + POSIXtoHM(land_time) + ' UTC'
     });
 
     var pop_marker = new google.maps.Marker({
             position: burst_pt,
             map: map,
             icon: burst_icon,
-            title: 'バースト (' + burst_lat + ', ' + burst_lon 
-                + ' 高度 ' + max_height + 'm) 時刻 ' 
-                + POSIXtoHM(burst_time) + " UTC"
+            title: (typeof formatCoordPair === 'function' ? 'バースト ' + formatCoordPair(parseFloat(burst_lat), parseFloat(burst_lon)) : 'バースト ('+burst_lat+', '+burst_lon+')') + ' 高度 ' + max_height + 'm 時刻 ' + POSIXtoHM(burst_time) + ' UTC'
     });
 
     var path_polyline = new google.maps.Polyline({

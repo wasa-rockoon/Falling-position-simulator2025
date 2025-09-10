@@ -797,7 +797,7 @@ function plotEhimeLandingMarker(variant_id, variant_index){
     var desc_line = diff_desc.length? ('変更: '+diff_desc.join(', ')) : '変更: なし (基準)';
     var popup_html = '<b>'+entry.label+'</b><br/>'+
         desc_line + '<br/>'+
-        '着地点: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        '着地点: '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+'<br/>'+
         '上昇:'+entry.settings.ascent_rate.toFixed(2)+' m/s / 下降:'+entry.settings.descent_rate.toFixed(2)+' m/s<br/>'+
         '破裂高度:'+entry.settings.burst_altitude.toFixed(0)+' m<br/>'+
         '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST';
@@ -1147,7 +1147,7 @@ function plotStandardPrediction(prediction, settings){
         }
     ).addTo(map);
     var land_popup = '<b>着地点</b><br/>'+
-        '緯度経度: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        '緯度経度: '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+'<br/>'+
         (settings && settings.profile==='standard_profile' ? '<b>上昇/下降:</b> '+settings.ascent_rate+' / '+settings.descent_rate+' m/s<br/>' : '')+
         (settings && settings.profile==='standard_profile' ? '<b>破裂高度:</b> '+settings.burst_altitude+' m<br/>' : (settings?'<b>滞留高度:</b> '+settings.float_altitude+' m<br/>':''))+
         '<b>着地時刻:</b> '+landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
@@ -1163,7 +1163,7 @@ function plotStandardPrediction(prediction, settings){
         }
     ).addTo(map);
     var burst_popup = '<b>破裂地点</b><br/>'+
-        '緯度経度: '+burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)+'<br/>'+
+        '緯度経度: '+(typeof formatCoord==='function'? formatCoord(burst.latlng.lat,'lat')+', '+formatCoord(burst.latlng.lng,'lon') : (burst.latlng.lat.toFixed(4)+', '+burst.latlng.lng.toFixed(4)))+'<br/>'+
         '<b>破裂高度:</b> '+burst.latlng.alt.toFixed(0)+' m<br/>'+
         (settings && settings.profile==='standard_profile' ? '<b>上昇/下降:</b> '+settings.ascent_rate+' / '+settings.descent_rate+' m/s<br/>' : '')+
         '<b>破裂時刻:</b> '+burst.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
@@ -1215,13 +1215,13 @@ function plotFallOnlyPrediction(prediction, settings){
     var land_marker = L.marker(landing.latlng, {title:'着地点 ('+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+') JST '+landing.datetime.clone().utcOffset(9*60).format('HH:mm'), icon:land_icon}).addTo(map);
 
     var launch_popup = '<b>落下開始</b><br/>'+
-        '位置: '+launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)+'<br/>'+
+        '位置: '+(typeof formatCoord==='function'? formatCoord(launch.latlng.lat,'lat')+', '+formatCoord(launch.latlng.lng,'lon') : (launch.latlng.lat.toFixed(4)+', '+launch.latlng.lng.toFixed(4)))+'<br/>'+
         '<b>開始高度:</b> '+launch.latlng.alt.toFixed(0)+' m<br/>'+
         '<b>開始時刻:</b> '+launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST<br/>'+
         '<b>下降速度:</b> '+ (settings.descent_rate!=null?settings.descent_rate:'?') +' m/s';
     launch_marker.bindPopup(launch_popup);
     var land_popup = '<b>着地点</b><br/>'+
-        '緯度経度: '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+'<br/>'+
+        '緯度経度: '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+'<br/>'+
         '<b>着地高度:</b> '+landing.latlng.alt.toFixed(0)+' m<br/>'+
         '<b>下降時間:</b> '+flighttime+'<br/>'+
         '<b>着地時刻:</b> '+landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm')+' JST';
@@ -1368,7 +1368,7 @@ function plotMultiplePrediction(prediction, current_hour){
     var _kml_url = _base_url + "&format=kml";
 
     var predict_description =  '<b>離陸時刻(JST): </b>' + launch.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') + '<br/>' + 
-    '<b>予測着地点:</b> '+landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)+ '</br>' +
+    '<b>予測着地点:</b> '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+ '</br>' +
     '<b>着地時刻(JST): </b>' + landing.datetime.clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm') + '<br/>' +
     '<b>ダウンロード: </b> <a href="'+_kml_url+'" target="_blank">KML</a>  <a href="'+_csv_url+'" target="_blank">CSV</a></br>';
 

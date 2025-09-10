@@ -348,3 +348,11 @@ table#trails th {
     color: #888 !important;
     border-color: #ccc !important;
 }
+
+/* --- Responsive: mobile-only elements --------------------------------------
+    The mobile navigation bar (打上 / 情報 / 計算 ...) should not appear on
+    desktop screens. It's shown only when the mobile stylesheet loads
+    (max-width: 768px). We hide any elements marked .mobile-only here by
+    default; predictor-mobile.css will override to display:flex on small screens.
+*/
+.mobile-only { display: none !important; }

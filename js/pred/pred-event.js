@@ -142,6 +142,25 @@ function EH_ScenarioInfo() {
             }
         });
     });
+
+    // Coordinate format toggle (Decimal <-> DMS)
+    $("#coord_format_toggle").click(function(){
+        if(window.coordFormat === 'dd'){
+            window.coordFormat = 'dms';
+            $(this).text('10進法表示').attr('title','緯度経度表示を 60 進法 から 10 進法 に切替');
+        } else {
+            window.coordFormat = 'dd';
+            $(this).text('60進法表示').attr('title','緯度経度表示を 10 進法 から 60 進法 に切替');
+        }
+        // 直ちに表示更新 (直前のマウス位置は不明なので map 中心座標を使用)
+        if(window.map){
+            var c = window.map.getCenter();
+            showMousePos(c);
+            if(typeof updateCoordinateFormat === 'function'){
+                updateCoordinateFormat();
+            }
+        }
+    });
 }
 
 function EH_LocationSave() {
