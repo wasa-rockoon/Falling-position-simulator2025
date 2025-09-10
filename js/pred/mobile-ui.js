@@ -4,6 +4,7 @@
   var mm = window.matchMedia('(max-width: '+BREAKPOINT+'px)');
   var inited = false;
   var nav, panels = {};
+  var COMPACT_CLASS = 'compact';
 
   // Safe closest polyfill (very old browsers)
   if(!Element.prototype.closest){
@@ -56,6 +57,9 @@
     if(!nav) return;
     buildPanels();
     if(mm.matches){
+  // Apply compact mode to launch panel for reduced vertical footprint
+  var launch = panels['input_form'];
+  if(launch && !launch.classList.contains(COMPACT_CLASS)) launch.classList.add(COMPACT_CLASS);
       // If no panel currently open, auto open launch form for guidance
       var anyOpen = Object.values(panels).some(p=>p.classList && p.classList.contains('mobile-panel-open'));
       if(!anyOpen){
@@ -69,6 +73,8 @@
       ['input_form','scenario_info'].forEach(function(id){
         var el = panels[id]; if(el){ el.style.display='block'; el.classList.remove('mobile-panel-open'); }
       });
+  // Remove compact class when not in mobile mode
+  var launchDesktop = panels['input_form']; if(launchDesktop) launchDesktop.classList.remove(COMPACT_CLASS);
     }
   }
 
@@ -77,6 +83,8 @@
     showEhimePanel: function(){ var ehimeBtn = document.getElementById('mobile_nav_ehime'); if(ehimeBtn){ ehimeBtn.style.display='block'; } },
     openPanel: function(id){ var btn = nav && nav.querySelector('button[data-target="'+id+'"]'); if(btn) btn.click(); },
     closeAll: closeAll,
+  enableCompact: function(){ var el = document.getElementById('input_form'); if(el) el.classList.add(COMPACT_CLASS); },
+  disableCompact: function(){ var el = document.getElementById('input_form'); if(el) el.classList.remove(COMPACT_CLASS); },
     _rebind: function(){ buildPanels(); }
   };
 
@@ -84,6 +92,10 @@
   document.addEventListener('DOMContentLoaded', init);
   // Fallback if script loads after DOM
   if(document.readyState === 'complete' || document.readyState === 'interactive') init();
+  // Initial compact application if already in mobile viewport
+  if(mm.matches){
+    var lf = document.getElementById('input_form'); if(lf) lf.classList.add(COMPACT_CLASS);
+  }
   // Listen to breakpoint changes
   if(mm.addEventListener){ mm.addEventListener('change', handleChange); } else if(mm.addListener){ mm.addListener(handleChange); }
   window.addEventListener('resize', handleChange);

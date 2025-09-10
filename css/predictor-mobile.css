@@ -31,13 +31,19 @@ body.mobile-active-panel-open { overflow:hidden; }
 
 /* Adjust key panels to full-width sheets */
 #input_form, #scenario_info, #burst-calc-wrapper, #ehime_panel { 
-  width:100% !important; 
+  /* Full width sheet styling for mobile */
+  position:fixed !important; /* ensure left/right/bottom take effect */
+  width:100dvw !important; /* dynamic viewport width (better with mobile browser UI) */
+  max-width:100% !important;
   left:0 !important; 
   right:0 !important; 
   max-height:60%; 
   bottom:48px; 
   top:auto !important; 
   margin:0 !important; 
+  padding-left:calc(env(safe-area-inset-left,0) + 8px);
+  padding-right:calc(env(safe-area-inset-right,0) + 8px);
+  box-sizing:border-box;
   border-radius:12px 12px 0 0; 
   box-shadow:0 -2px 10px rgba(0,0,0,0.3);
   display:none; 
@@ -107,3 +113,27 @@ img.handle { width:24px; height:auto; }
 
 /* Hide the mobile nav on larger screens (redundant via media attr but safe) */
 @media (min-width:769px) { #mobile_nav { display:none !important; } }
+
+/* --- Compact launch panel mode -------------------------------------------------
+  Automatically applied via JS on mobile. Shrinks spacing & reverts some stacking
+  so the form occupies less vertical space. */
+#input_form.compact { font-size:11px; line-height:1.25; }
+#input_form.compact #launch-card { border-collapse:collapse; }
+/* Revert block stacking to show two columns again where possible */
+#input_form.compact #launch-card tr { display:table-row; }
+#input_form.compact #launch-card td { display:table-cell; width:auto !important; padding:2px 4px; }
+/* Cells that intentionally span full width should still do so */
+#input_form.compact #launch-card td[colspan] { display:table-cell; width:100% !important; }
+/* Make inputs/selects use full width only when alone */
+#input_form.compact #launch-card td:last-child input[type="text"],
+#input_form.compact #launch-card td:last-child select { width:100%; box-sizing:border-box; }
+/* Pair latitude / longitude inputs tighter */
+#input_form.compact #launch-card #lat, 
+#input_form.compact #launch-card #lon { width:42%; min-width:0; }
+#input_form.compact #launch-card #lat { margin-right:2%; }
+/* Reduce spacing for action rows */
+#input_form.compact #launch-card tr td:first-child { white-space:nowrap; }
+#input_form.compact #run_pred_btn { padding:4px 10px; font-size:12px; }
+/* Ehime info row still readable */
+#input_form.compact #ehime_info_row { font-size:10px; }
+
