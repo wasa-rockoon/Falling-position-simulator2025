@@ -137,3 +137,50 @@ img.handle { width:24px; height:auto; }
 /* Ehime info row still readable */
 #input_form.compact #ehime_info_row { font-size:10px; }
 
+/* --- Custom mobile layout adjustments to prevent horizontal scroll ------------------
+   要望: 緯度/経度を 1/2 ずつ, 打ち上げ時刻 (時/分) を 1/2 ずつ, 日付 (日/月/年) を 1/3 ずつ。
+   既存のルール (#launch-card input[type="text"], #launch-card select { width:100%!important }) により
+   同一セル内で複数入力が横に並ぶ行でオーバーフローしていたため、ID 指定で上書き。
+*/
+/* 緯度 / 経度 */
+#launch-card #lat, 
+#launch-card #lon { 
+  width:40% !important; /* ほぼ 1/2。残り 2% は区切り文字用 */
+  display:inline-block; 
+  box-sizing:border-box; 
+}
+#launch-card #lat { margin-right:2%; }
+
+/* 打ち上げ時刻 (時 / 分) */
+#launch-card #hour, 
+#launch-card #min { 
+  width:48% !important; 
+  display:inline-block; 
+  box-sizing:border-box; 
+}
+#launch-card #hour { margin-right:2%; }
+
+/* 打ち上げ日付 (日 / 月 / 年) */
+#launch-card #day, 
+#launch-card #month, 
+#launch-card #year { 
+  width:32% !important; /* 1/3 ずつ */
+  display:inline-block; 
+  box-sizing:border-box; 
+}
+#launch-card #day { margin-right:2%; }
+#launch-card #month { margin-right:2%; }
+
+/* Compact モードでも同様の比率を維持 (多少余白を減らす) */
+#input_form.compact #launch-card #lat, 
+#input_form.compact #launch-card #lon { width:45% !important; margin-right:0; }
+#input_form.compact #launch-card #lat { margin-right:4%; }
+#input_form.compact #launch-card #hour, 
+#input_form.compact #launch-card #min { width:46% !important; margin-right:0; }
+#input_form.compact #launch-card #hour { margin-right:4%; }
+#input_form.compact #launch-card #day, 
+#input_form.compact #launch-card #month, 
+#input_form.compact #launch-card #year { width:30% !important; margin-right:0; }
+#input_form.compact #launch-card #day { margin-right:4%; }
+#input_form.compact #launch-card #month { margin-right:3%; }
+
