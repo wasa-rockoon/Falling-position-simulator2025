@@ -800,7 +800,8 @@ function plotEhimeLandingMarker(variant_id, variant_index){
         '着地点: '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+'<br/>'+
         '上昇:'+entry.settings.ascent_rate.toFixed(2)+' m/s / 下降:'+entry.settings.descent_rate.toFixed(2)+' m/s<br/>'+
         '破裂高度:'+entry.settings.burst_altitude.toFixed(0)+' m<br/>'+
-        '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST';
+    '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST<br/>'+
+    '落下時刻:'+(landing && landing.datetime ? landing.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST' : '不明');
     marker.bindPopup(popup_html);
     ehime_predictions[variant_id].marker = marker;
 
