@@ -21,6 +21,10 @@ body {
         background-color: #000000;
 }
 
+/* --- Desktop: hide elements meant only for mobile (mobile CSS will re-display at <=768px) --- */
+/* NOTE: no !important so predictor-mobile.css can override */
+.mobile-only { display: none; }
+
 a { text-decoration: underline; color: #333; cursor: pointer; }
 
 /* The whoppping map in the centre */
