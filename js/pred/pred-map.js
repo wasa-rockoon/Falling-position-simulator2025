@@ -222,6 +222,29 @@ function updateAllPopups(){
                 html = html.substring(0, idx) + replacement + html.substring(end);
             }
         });
+        // Special: BASE着地点 line should always use BASE variant's landing coords
+        try {
+            var baseIdx = html.indexOf('BASE着地点:');
+            if(baseIdx !== -1 && typeof ehime_predictions !== 'undefined' && ehime_predictions){
+                var baseLL = null;
+                for(var k in ehime_predictions){
+                    var ep = ehime_predictions[k];
+                    if(ep && ep.label === 'BASE' && ep.results && ep.results.landing){ baseLL = ep.results.landing.latlng; break; }
+                }
+                var startB = baseIdx + 'BASE着地点:'.length;
+                var endB = html.indexOf('<', startB);
+                if(endB === -1) endB = html.length;
+                var repB = 'BASE着地点: ';
+                if(baseLL){
+                    var bLat = formatCoord(baseLL.lat,'lat');
+                    var bLon = formatCoord(baseLL.lng,'lon');
+                    repB += bLat + ', ' + bLon;
+                } else {
+                    repB += '-';
+                }
+                html = html.substring(0, baseIdx) + repB + html.substring(endB);
+            }
+        } catch(e){}
         pop.setContent(html);
         // If open, force redraw
         if(pop.isOpen && pop.isOpen()){

@@ -499,31 +499,26 @@ function updateEhimeCSVLink(){
     }
 }
 
-// Click handler to trigger CSV build & download
+// Click handler to trigger CSV build & download (use the clicked link for user-gesture reliability)
 $(document).on('click','#ehime_dlcsv', function(e){
-    e.preventDefault();
     var csv = buildEhimeLandingCSV();
     if(!csv){
+        e.preventDefault();
         alert('まだ着地点データがありません。予測完了後に再度お試しください。');
         return;
     }
     var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    // Improved, more descriptive filename (例: Ehime_着地点一覧_20250907_1530JST_34.123N_132.456E.csv)
-    // 基本: 予測(基準)の離陸日時(JST)を基準に命名し、可能なら離陸緯度経度(小数3桁)を付与。
+    // Build filename (例: Ehime_着地点一覧_20250907_1530JST_34.123N_132.456E.csv)
     var baseEntry = null;
     try { baseEntry = Object.values(ehime_predictions).find(p=>p.label==='BASE' && p.results && p.results.launch && p.results.launch.datetime); } catch(_e) {}
     var launchMoment = baseEntry ? baseEntry.results.launch.datetime.clone() : moment();
-    // JST に揃える
     launchMoment.utcOffset(9*60);
     var ts = launchMoment.format('YYYYMMDD_HHmm');
     var latlonPart = '';
     try {
         if(baseEntry && baseEntry.results.launch && baseEntry.results.launch.latlng){
             var ll = baseEntry.results.launch.latlng;
-            // 3桁で丸め、N/E を付与 (南/西は想定外だが一応符号処理)
             var latAbs = Math.abs(ll.lat).toFixed(3);
             var lonAbs = Math.abs(ll.lng).toFixed(3);
             var latHem = ll.lat>=0 ? 'N':'S';
@@ -531,7 +526,6 @@ $(document).on('click','#ehime_dlcsv', function(e){
             latlonPart = '_'+latAbs+latHem+'_'+lonAbs+lonHem;
         }
     } catch(_e) {}
-    // 上昇/下降速度 (BASE 設定) もファイル名へ含める (_ASCx.xx_DESy.yy)
     var ascPart = '', descPart = '';
     try {
         if(baseEntry && baseEntry.settings){
@@ -541,10 +535,28 @@ $(document).on('click','#ehime_dlcsv', function(e){
             if(!isNaN(descVal)) descPart = '_DES'+descVal.toFixed(2);
         }
     } catch(_e) {}
-    a.download = 'Ehime_着地点一覧_'+ts+'JST'+ascPart+descPart+latlonPart+'.csv';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+    var filename = 'Ehime_着地点一覧_'+ts+'JST'+ascPart+descPart+latlonPart+'.csv';
+    // Set attributes on the actual clicked link and allow default navigation
+    try {
+        this.href = url;
+        this.setAttribute('download', filename);
+        // Cleanup later to avoid revoking before the browser starts the download
+        var linkEl = this;
+        setTimeout(function(){
+            try { URL.revokeObjectURL(url); } catch(_e){}
+            // Remove attributes to keep DOM clean and avoid stale href on next click
+            try { linkEl.removeAttribute('href'); linkEl.removeAttribute('download'); } catch(__e){}
+        }, 10000);
+    } catch(err){
+        // Fallback: prevent default and open a temporary link
+        e.preventDefault();
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 10000);
+    }
 });
 
 function tawhiriRequest(settings, extra_settings){
@@ -754,6 +766,23 @@ function processEhimeResult(data, settings, variant_id, variant_index){
     if(ehime_predictions[variant_id].label==='BASE'){
         // Pass settings so popups can show conditions
         plotStandardPrediction(prediction_results, settings);
+        // Set standard CSV/KML links to BASE flight path (same as single mode)
+        try {
+            var _base_url = tawhiri_api + "?" + $.param(settings);
+            var _csv_url = _base_url + "&format=csv";
+            var _kml_url = _base_url + "&format=kml";
+            $("#dlcsv").attr("href", _csv_url).removeAttr('download');
+            $("#dlkml").attr("href", _kml_url).removeAttr('download');
+        } catch(_e){}
+        // Update run time/model if available
+        try {
+            if(data && data.metadata && data.request){
+                var run_time = moment.utc(data.metadata.complete_datetime).clone().utcOffset(9*60).format('YYYY-MM-DD HH:mm');
+                var dataset = moment.utc(data.request.dataset).format("YYYYMMDD-HH");
+                $("#run_time").html(run_time);
+                $("#dataset").html(dataset);
+            }
+        } catch(__e){}
     }
 
     // Plot landing marker for each variant
@@ -762,6 +791,12 @@ function processEhimeResult(data, settings, variant_id, variant_index){
     updateEhimeCSVLink();
     refreshEhimePanel();
     refreshEhimePanel();
+    // After BASE result arrives, refresh popups so non-BASE markers can show BASE coordinates
+    try {
+        if(ehime_predictions[variant_id] && ehime_predictions[variant_id].label==='BASE' && typeof updateAllPopups==='function'){
+            updateAllPopups();
+        }
+    } catch(_e){}
 }
 
 function plotEhimeLandingMarker(variant_id, variant_index){
@@ -795,9 +830,26 @@ function plotEhimeLandingMarker(variant_id, variant_index){
         }
     }
     var desc_line = diff_desc.length? ('変更: '+diff_desc.join(', ')) : '変更: なし (基準)';
+    // Show BASE landing for non-BASE entries. If BASE not ready yet, show placeholder '-'.
+    var base_line = '';
+    if(entry.label !== 'BASE'){
+        var baseLL = null;
+        try {
+            for(var k in ehime_predictions){
+                var ep = ehime_predictions[k];
+                if(ep && ep.label==='BASE' && ep.results && ep.results.landing){ baseLL = ep.results.landing.latlng; break; }
+            }
+        } catch(_e){}
+        if(baseLL){
+            base_line = 'BASE着地点: '+(typeof formatCoord==='function'? (formatCoord(baseLL.lat,'lat')+', '+formatCoord(baseLL.lng,'lon')) : (baseLL.lat.toFixed(4)+', '+baseLL.lng.toFixed(4)))+'<br/>';
+        } else {
+            base_line = 'BASE着地点: -<br/>';
+        }
+    }
     var popup_html = '<b>'+entry.label+'</b><br/>'+
         desc_line + '<br/>'+
         '着地点: '+(typeof formatCoord==='function'? formatCoord(landing.latlng.lat,'lat')+', '+formatCoord(landing.latlng.lng,'lon') : (landing.latlng.lat.toFixed(4)+', '+landing.latlng.lng.toFixed(4)))+'<br/>'+
+        base_line+
         '上昇:'+entry.settings.ascent_rate.toFixed(2)+' m/s / 下降:'+entry.settings.descent_rate.toFixed(2)+' m/s<br/>'+
         '破裂高度:'+entry.settings.burst_altitude.toFixed(0)+' m<br/>'+
     '離陸:'+launch.datetime.clone().utcOffset(9*60).format('HH:mm')+' JST<br/>'+
